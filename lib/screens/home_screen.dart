@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'dart:convert' show base64Decode;
+import 'dart:convert';
 
 import '../providers/notification_provider.dart';
 import '../models/notification_model.dart';
@@ -16,6 +16,41 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _hasMoreData = true;
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onScroll() async {
+    if (!_isLoadingMore &&
+        _hasMoreData &&
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent * 0.8) {
+      _isLoadingMore = true;
+      final hasMore =
+          await Provider.of<NotificationProvider>(
+            context,
+            listen: false,
+          ).loadMoreNotifications();
+
+      setState(() {
+        _hasMoreData = hasMore;
+        _isLoadingMore = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,11 +109,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return EmptyState(
       icon: Icons.notifications_active,
       title: 'Notification Access Required',
-      message: 'This app needs notification access permissions to capture and display notifications.',
+      message:
+          'This app needs notification access permissions to capture and display notifications.',
       action: ElevatedButton(
         onPressed: () async {
+          if (!context.mounted) return;
           final granted = await provider.requestPermission();
-          if (!granted && context.mounted) {
+          if (!granted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Permission denied. Please enable in settings.'),
@@ -94,91 +131,99 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNotificationList(Map<String, List<AppNotification>> groupedNotifications) {
+  Widget _buildNotificationList(
+    Map<String, List<AppNotification>> groupedNotifications,
+  ) {
     final apps = groupedNotifications.keys.toList();
-    
-    return ListView.builder(
-      itemCount: apps.length,
-      itemBuilder: (context, index) {
-        final appName = apps[index];
-        final appNotifications = groupedNotifications[appName]!;
-        final packageName = appNotifications.first.packageName;
-        
-        // Get the icon of the first notification for this app
-        final iconData = appNotifications.first.iconData;
-        Widget leadingWidget;
-        
-        if (iconData != null && iconData.isNotEmpty) {
-          // If we have an icon, decode and display it
-          try {
-            final iconBytes = base64Decode(iconData);
-            leadingWidget = CircleAvatar(
-              backgroundImage: MemoryImage(iconBytes),
-              backgroundColor: Colors.transparent,
-            );
-          } catch (e) {
-            // Fallback to text avatar if decoding fails
-            leadingWidget = CircleAvatar(
-              backgroundColor: Theme.of(context).primaryColor,
-              child: Text(appName[0].toUpperCase()),
-            );
-          }
-        } else {
-          // No icon available, use text avatar
-          leadingWidget = CircleAvatar(
-            backgroundColor: Theme.of(context).primaryColor,
-            child: Text(appName[0].toUpperCase()),
-          );
-        }
-        
-        return ExpansionTile(
-          initiallyExpanded: true,
-          leading: leadingWidget,
-          title: GestureDetector(
-            onLongPress: () => _showExcludeAppDialog(context, appName, packageName),
-            child: Text(
-              appName,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          subtitle: Text('${appNotifications.length} notifications'),
-          children: appNotifications.map((notification) {
-            return _buildNotificationItem(notification);
-          }).toList(),
-        );
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Provider.of<NotificationProvider>(
+          context,
+          listen: false,
+        ).loadNotifications();
       },
-    );
-  }
-  
-  void _showExcludeAppDialog(BuildContext context, String appName, String packageName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Exclude $appName'),
-        content: Text('Do you want to exclude $appName from notification capture? Notifications from this app will no longer be collected.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final provider = Provider.of<NotificationProvider>(context, listen: false);
-              provider.excludeApp(packageName);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('$appName will no longer be tracked'),
-                  action: SnackBarAction(
-                    label: 'UNDO',
-                    onPressed: () {
-                      provider.includeApp(packageName);
-                    },
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: apps.length,
+              itemBuilder: (context, index) {
+                final appName = apps[index];
+                final appNotifications = groupedNotifications[appName]!;
+                final packageName = appNotifications.first.packageName;
+
+                // Get the icon of the first notification for this app
+                final iconData = appNotifications.first.iconData;
+                Widget leadingWidget;
+
+                if (iconData != null && iconData.isNotEmpty) {
+                  // If we have an icon, decode and display it
+                  try {
+                    leadingWidget = Image.memory(
+                      base64Decode(iconData),
+                      width: 24,
+                      height: 24,
+                    );
+                  } catch (e) {
+                    // If decoding fails, show fallback icon
+                    leadingWidget = const Icon(Icons.notifications);
+                  }
+                } else {
+                  // If no icon data, show fallback icon
+                  leadingWidget = const Icon(Icons.notifications);
+                }
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                ),
-              );
-            },
-            child: const Text('Exclude'),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: leadingWidget,
+                        title: Text(
+                          appName,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${appNotifications.length}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () {
+                                _showClearAppNotificationsDialog(packageName);
+                              },
+                            ),
+                          ],
+                        ),
+                        onLongPress: () {
+                          _showExcludeAppDialog(packageName);
+                        },
+                      ),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: appNotifications.length,
+                        itemBuilder: (context, index) {
+                          return _buildNotificationItem(
+                            appNotifications[index],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -186,22 +231,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNotificationItem(AppNotification notification) {
-    final timeFormat = DateFormat.jm(); // Format time as 3:30 PM
-    final dateFormat = DateFormat.yMMMd(); // Format date as Apr 13, 2023
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final notificationDate = DateTime(
-        notification.timestamp.year,
-        notification.timestamp.month,
-        notification.timestamp.day);
+      notification.timestamp.year,
+      notification.timestamp.month,
+      notification.timestamp.day,
+    );
 
+    final timeFormat = DateFormat('HH:mm');
+    final dateFormat = DateFormat('dd/MM/yyyy');
     String timeText;
+
     if (notificationDate == today) {
       timeText = 'Today, ${timeFormat.format(notification.timestamp)}';
     } else if (notificationDate == today.subtract(const Duration(days: 1))) {
       timeText = 'Yesterday, ${timeFormat.format(notification.timestamp)}';
     } else {
-      timeText = '${dateFormat.format(notification.timestamp)}, ${timeFormat.format(notification.timestamp)}';
+      timeText =
+          '${dateFormat.format(notification.timestamp)}, ${timeFormat.format(notification.timestamp)}';
     }
 
     return InkWell(
@@ -209,7 +257,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => NotificationDetailScreen(notification: notification),
+            builder:
+                (context) =>
+                    NotificationDetailScreen(notification: notification),
           ),
         );
       },
@@ -225,50 +275,128 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Text(
                     notification.title,
                     style: const TextStyle(fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
                   timeText,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              notification.body,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Divider(),
+            if (notification.body.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  notification.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
+  void _showExcludeAppDialog(String packageName) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Exclude App'),
+            content: const Text(
+              'Do you want to exclude this app from notification capture? Notifications from this app will no longer be collected.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  final provider = Provider.of<NotificationProvider>(
+                    context,
+                    listen: false,
+                  );
+                  provider.excludeApp(packageName);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('App will no longer be tracked'),
+                      action: SnackBarAction(
+                        label: 'UNDO',
+                        onPressed: () {
+                          provider.includeApp(packageName);
+                        },
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Exclude'),
+              ),
+            ],
+          ),
+    );
+  }
+
   void _confirmClearNotifications(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear All Notifications'),
-        content: const Text('Are you sure you want to clear all notifications?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Clear All Notifications'),
+            content: const Text(
+              'Are you sure you want to clear all notifications?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Provider.of<NotificationProvider>(
+                    context,
+                    listen: false,
+                  ).clearAllNotifications();
+                  Navigator.pop(context);
+                },
+                child: const Text('Clear'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Provider.of<NotificationProvider>(context, listen: false)
-                  .clearAllNotifications();
-              Navigator.pop(context);
-            },
-            child: const Text('Clear'),
+    );
+  }
+
+  void _showClearAppNotificationsDialog(String packageName) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Clear Notifications'),
+            content: const Text(
+              'Are you sure you want to clear all notifications for this app?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Provider.of<NotificationProvider>(
+                    context,
+                    listen: false,
+                  ).clearAppNotifications(packageName);
+                  Navigator.pop(context);
+                },
+                child: const Text('Clear'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }

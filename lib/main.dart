@@ -1,13 +1,20 @@
-import 'package:flutter/material.dart' show BuildContext, Colors, ColorScheme, MaterialApp, StatelessWidget, ThemeData, Widget, WidgetsFlutterBinding, runApp;
-import 'package:provider/provider.dart' show ChangeNotifierProvider;
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 
-import 'providers/notification_provider.dart' show NotificationProvider;
-import 'screens/home_screen.dart' show HomeScreen;
-import 'screens/settings_screen.dart' show SettingsScreen;
-import 'screens/dashmon_screen.dart' show DashmonScreen;
+import 'providers/notification_provider.dart';
+import 'screens/home_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/app_management_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
   runApp(const MyApp());
 }
 
@@ -28,7 +35,8 @@ class MyApp extends StatelessWidget {
         routes: {
           '/': (context) => const HomeScreen(),
           '/settings': (context) => const SettingsScreen(),
-          '/dashmon': (context) => const DashmonScreen(),
+          '/dashboard': (context) => const DashboardScreen(),
+          '/apps': (context) => const AppManagementScreen(),
         },
       ),
     );

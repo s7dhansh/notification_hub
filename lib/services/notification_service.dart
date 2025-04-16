@@ -17,13 +17,15 @@ class NotificationService {
   final _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
   Timer? _mockTimer;
   final _random = math.Random();
-  
-  final _notificationsStreamController = StreamController<AppNotification>.broadcast();
-  Stream<AppNotification> get notificationsStream => _notificationsStreamController.stream;
+
+  final _notificationsStreamController =
+      StreamController<AppNotification>.broadcast();
+  Stream<AppNotification> get notificationsStream =>
+      _notificationsStreamController.stream;
 
   bool _isListening = false;
   bool get isListening => _isListening;
-  
+
   // Set of excluded package names
   Set<String> _excludedApps = {};
 
@@ -39,10 +41,41 @@ class NotificationService {
     'com.spotify.music',
   ];
 
+  bool _useMockNotifications = false;
+
+  Future<bool> getUseMockNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    _useMockNotifications = prefs.getBool('useMockNotifications') ?? false;
+    return _useMockNotifications;
+  }
+
+  Future<void> setUseMockNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('useMockNotifications', value);
+    _useMockNotifications = value;
+
+    if (!value) {
+      _mockTimer?.cancel();
+      _mockTimer = null;
+    } else if (_isListening) {
+      _startMockNotifications();
+    }
+  }
+
+  void _startMockNotifications() {
+    if (_useMockNotifications && _isListening) {
+      _mockTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        _generateMockNotification();
+      });
+    }
+  }
+
   // Initialize notification service
   Future<void> initialize() async {
     // Initialize local notifications
-    const initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettingsAndroid = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     final initializationSettingsIOS = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -75,14 +108,14 @@ class NotificationService {
   // Start listening to notifications
   Future<void> startListening() async {
     if (_isListening) return;
-    
+
     _isListening = true;
-    
-    // For demo purposes, periodically generate mock notifications
-    _mockTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      _generateMockNotification();
-    });
-    
+
+    // Check if mock notifications should be used
+    if (await getUseMockNotifications()) {
+      _startMockNotifications();
+    }
+
     // Load existing notifications
     final notifications = await getNotifications();
     for (final notification in notifications) {
@@ -100,20 +133,20 @@ class NotificationService {
   // Generate a mock notification for testing
   void _generateMockNotification() async {
     if (!_isListening) return;
-    
+
     // Randomly select an app
     final appIndex = _random.nextInt(_apps.length);
     final packageName = _apps[appIndex];
-    
+
     // Skip if this app is excluded
     if (await isAppExcluded(packageName)) return;
-    
+
     final appName = _getAppNameFromPackage(packageName);
-    
+
     // Create mock notification content
     String title;
     String body;
-    
+
     switch (appName.toLowerCase()) {
       case 'whatsapp':
         title = 'New message from ${_getRandomName()}';
@@ -139,7 +172,7 @@ class NotificationService {
         title = 'New notification from $appName';
         body = 'You have a new update to check';
     }
-    
+
     final appNotification = AppNotification(
       id: '${packageName}_${DateTime.now().millisecondsSinceEpoch}',
       packageName: packageName,
@@ -150,17 +183,26 @@ class NotificationService {
       iconData: null,
       isRemoved: false,
     );
-    
+
     // Save notification to storage
     _saveNotification(appNotification);
-    
+
     // Broadcast notification to listeners
     _notificationsStreamController.add(appNotification);
   }
-  
+
   // Get a random name for mock notifications
   String _getRandomName() {
-    final names = ['Alice', 'Bob', 'Charlie', 'David', 'Emma', 'Frank', 'Grace', 'Henry'];
+    final names = [
+      'Alice',
+      'Bob',
+      'Charlie',
+      'David',
+      'Emma',
+      'Frank',
+      'Grace',
+      'Henry',
+    ];
     return names[_random.nextInt(names.length)];
   }
 
@@ -169,12 +211,15 @@ class NotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notificationsJson = prefs.getStringList('notifications') ?? [];
-      final notifications = notificationsJson
-          .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
-          .toList();
+      final notifications =
+          notificationsJson
+              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
+              .toList();
 
       // Add new notification (or update if it exists by ID)
-      final existingIndex = notifications.indexWhere((n) => n.id == notification.id);
+      final existingIndex = notifications.indexWhere(
+        (n) => n.id == notification.id,
+      );
       if (existingIndex >= 0) {
         notifications[existingIndex] = notification;
       } else {
@@ -188,25 +233,25 @@ class NotificationService {
       final limitedNotifications = notifications.take(100).toList();
 
       // Save back to shared preferences
-      final updatedJsonList = limitedNotifications
-          .map((notification) => json.encode(notification.toMap()))
-          .toList();
+      final updatedJsonList =
+          limitedNotifications
+              .map((notification) => json.encode(notification.toMap()))
+              .toList();
       await prefs.setStringList('notifications', updatedJsonList);
     } catch (e) {
       // Log error but don't crash
     }
   }
 
-
-
   // Get all stored notifications
   Future<List<AppNotification>> getNotifications() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notificationsJson = prefs.getStringList('notifications') ?? [];
-      final notifications = notificationsJson
-          .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
-          .toList();
+      final notifications =
+          notificationsJson
+              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
+              .toList();
 
       // Sort by timestamp (newest first)
       notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -226,7 +271,45 @@ class NotificationService {
     }
   }
 
+  Future<void> clearAppNotifications(String packageName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notificationsJson = prefs.getStringList('notifications') ?? [];
+      final notifications =
+          notificationsJson
+              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
+              .where((n) => n.packageName != packageName)
+              .toList();
 
+      final updatedJsonList =
+          notifications
+              .map((notification) => json.encode(notification.toMap()))
+              .toList();
+      await prefs.setStringList('notifications', updatedJsonList);
+    } catch (e) {
+      // Log error but don't crash
+    }
+  }
+
+  Future<void> removeNotification(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notificationsJson = prefs.getStringList('notifications') ?? [];
+      final notifications =
+          notificationsJson
+              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
+              .where((n) => n.id != id)
+              .toList();
+
+      final updatedJsonList =
+          notifications
+              .map((notification) => json.encode(notification.toMap()))
+              .toList();
+      await prefs.setStringList('notifications', updatedJsonList);
+    } catch (e) {
+      // Log error but don't crash
+    }
+  }
 
   // Get readable app name from package name
   String _getAppNameFromPackage(String packageName) {

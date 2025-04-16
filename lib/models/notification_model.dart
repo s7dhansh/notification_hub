@@ -28,7 +28,9 @@ class AppNotification {
       appName: map['appName'] ?? 'Unknown App',
       title: map['title'] ?? '',
       body: map['body'] ?? '',
-      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? DateTime.now().millisecondsSinceEpoch),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+        map['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+      ),
       iconData: map['iconData'],
       isRemoved: map['isRemoved'] ?? false,
     );

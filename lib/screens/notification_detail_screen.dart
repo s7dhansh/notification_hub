@@ -1,8 +1,31 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/material.dart'
+    show
+        AppBar,
+        BuildContext,
+        Card,
+        CircleAvatar,
+        Colors,
+        Column,
+        CrossAxisAlignment,
+        Divider,
+        EdgeInsets,
+        Expanded,
+        FontWeight,
+        MemoryImage,
+        Padding,
+        Row,
+        Scaffold,
+        SizedBox,
+        SingleChildScrollView,
+        StatelessWidget,
+        Text,
+        TextStyle,
+        Theme,
+        Widget;
+import 'package:intl/intl.dart' show DateFormat;
 import 'dart:convert' show base64Decode;
 
-import '../models/notification_model.dart';
+import '../models/notification_model.dart' show AppNotification;
 
 class NotificationDetailScreen extends StatelessWidget {
   final AppNotification notification;
@@ -12,11 +35,9 @@ class NotificationDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateTimeFormat = DateFormat('MMM d, y - h:mm a');
-    
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Notification from ${notification.appName}'),
-      ),
+      appBar: AppBar(title: Text('Notification from ${notification.appName}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -81,7 +102,10 @@ class NotificationDetailScreen extends StatelessWidget {
             const SizedBox(height: 8),
             _buildDetailRow('Package Name:', notification.packageName),
             _buildDetailRow('Notification ID:', notification.id),
-            _buildDetailRow('Received at:', dateTimeFormat.format(notification.timestamp)),
+            _buildDetailRow(
+              'Received at:',
+              dateTimeFormat.format(notification.timestamp),
+            ),
           ],
         ),
       ),
@@ -102,38 +126,40 @@ class NotificationDetailScreen extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: Colors.grey),
-            ),
+            child: Text(value, style: const TextStyle(color: Colors.grey)),
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildAppAvatar(BuildContext context) {
     // Try to show the app icon if available
     if (notification.iconData != null && notification.iconData!.isNotEmpty) {
       try {
-        final iconBytes = base64Decode(notification.iconData!);
         return CircleAvatar(
-          backgroundImage: MemoryImage(iconBytes),
           backgroundColor: Colors.transparent,
+          backgroundImage: MemoryImage(base64Decode(notification.iconData!)),
         );
       } catch (e) {
-        // Fallback to text avatar if decoding fails
+        // Fallback to default avatar if icon decoding fails
         return CircleAvatar(
           backgroundColor: Theme.of(context).primaryColor,
-          child: Text(notification.appName[0].toUpperCase()),
+          child: Text(
+            notification.appName[0].toUpperCase(),
+            style: const TextStyle(color: Colors.white),
+          ),
         );
       }
-    } else {
-      // No icon available, use text avatar
-      return CircleAvatar(
-        backgroundColor: Theme.of(context).primaryColor,
-        child: Text(notification.appName[0].toUpperCase()),
-      );
     }
+
+    // Default avatar with first letter if no icon is available
+    return CircleAvatar(
+      backgroundColor: Theme.of(context).primaryColor,
+      child: Text(
+        notification.appName[0].toUpperCase(),
+        style: const TextStyle(color: Colors.white),
+      ),
+    );
   }
 }
