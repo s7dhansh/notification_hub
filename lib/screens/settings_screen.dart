@@ -34,8 +34,11 @@ import 'package:flutter/material.dart'
         showAboutDialog,
         showDialog;
 import 'package:provider/provider.dart' show Consumer;
+import 'package:notification_listener_service/notification_listener_service.dart'
+    show NotificationListenerService;
 
 import '../providers/notification_provider.dart' show NotificationProvider;
+import '../services/notification_service.dart' show NotificationService;
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -48,6 +51,47 @@ class SettingsScreen extends StatelessWidget {
         builder: (context, provider, child) {
           return ListView(
             children: [
+              // Notification Listener Permission
+              FutureBuilder<bool>(
+                future: NotificationListenerService.isPermissionGranted(),
+                builder: (context, snapshot) {
+                  final hasPermission = snapshot.data ?? false;
+                  return ListTile(
+                    title: const Text('Notification Access Permission'),
+                    subtitle: Text(
+                      hasPermission
+                          ? 'Granted - App can read notifications'
+                          : 'Required - Tap to enable notification access',
+                    ),
+                    trailing:
+                        hasPermission
+                            ? const Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                            )
+                            : const Icon(Icons.error, color: Colors.red),
+                    onTap: () async {
+                      if (!hasPermission) {
+                        // Open system settings for notification access
+                        await NotificationService().requestPermission();
+                        // Show guidance to user
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enable Notification Hub in the list and return to the app',
+                              ),
+                              duration: Duration(seconds: 5),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+              const Divider(),
+
               // Notification Service Toggle
               ListTile(
                 title: const Text('Notification Listener Service'),
@@ -56,6 +100,32 @@ class SettingsScreen extends StatelessWidget {
                   value: provider.isListening,
                   onChanged: (value) async {
                     if (value) {
+                      // Check permission before enabling
+                      final hasPermission =
+                          await NotificationListenerService.isPermissionGranted();
+                      if (!hasPermission) {
+                        // Show dialog explaining permission requirement
+                        if (context.mounted) {
+                          await showDialog(
+                            context: context,
+                            builder:
+                                (ctx) => AlertDialog(
+                                  title: const Text('Permission Required'),
+                                  content: const Text(
+                                    'Notification access permission is required to capture notifications. '
+                                    'Please enable it in the settings above.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(ctx).pop(),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                          );
+                        }
+                        return;
+                      }
                       await provider.startListening();
                     } else {
                       await provider.stopListening();
@@ -118,6 +188,29 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                   );
+                },
+              ),
+
+              const Divider(),
+
+              // Test Notification Button
+              ListTile(
+                title: const Text('Send Test Notification'),
+                subtitle: const Text('Send a test notification to verify functionality'),
+                trailing: const Icon(Icons.notifications_active),
+                onTap: () async {
+                  await provider.sendTestNotification(
+                    title: 'Test Notification',
+                    body: 'This is a test notification sent from Notification Hub',
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Test notification sent'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 },
               ),
 

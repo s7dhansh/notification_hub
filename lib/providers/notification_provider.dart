@@ -1,8 +1,10 @@
-import 'dart:async';
-import 'package:flutter/foundation.dart' show ChangeNotifier;
-import '../models/notification_model.dart';
-import '../services/notification_service.dart';
-import '../services/icon_cache_service.dart';
+import 'dart:async' show StreamSubscription;
+import 'package:flutter/foundation.dart'
+    show
+        ChangeNotifier; // Already uses show, no change needed but included for completeness of the block
+import '../models/notification_model.dart' show AppNotification;
+import '../services/notification_service.dart' show NotificationService;
+import '../services/icon_cache_service.dart' show IconCacheService;
 
 class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
@@ -38,6 +40,7 @@ class NotificationProvider with ChangeNotifier {
 
   // Start listening to notification stream
   void _startListeningToNotifications() {
+    _subscription?.cancel();
     _subscription = _notificationService.notificationsStream.listen((
       notification,
     ) async {
@@ -58,8 +61,10 @@ class NotificationProvider with ChangeNotifier {
               return n;
             }).toList();
       } else {
-        // Add new notification
-        _notifications.insert(0, notification);
+        // Deduplicate by ID
+        if (!_notifications.any((n) => n.id == notification.id)) {
+          _notifications.insert(0, notification);
+        }
       }
       notifyListeners();
     });
@@ -208,6 +213,17 @@ class NotificationProvider with ChangeNotifier {
     _notifications.addAll(moreNotifications);
     notifyListeners();
     return true;
+  }
+
+  // Send a test notification
+  Future<void> sendTestNotification({
+    String title = 'Test Notification',
+    String body = 'This is a test notification',
+  }) async {
+    await _notificationService.sendTestNotification(
+      title: title,
+      body: body,
+    );
   }
 
   @override

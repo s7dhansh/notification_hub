@@ -1,9 +1,46 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart' show Consumer;
-import 'package:intl/intl.dart' show DateFormat;
-import 'dart:convert' show base64Decode;
-import '../providers/notification_provider.dart' show NotificationProvider;
-import '../models/notification_model.dart' show AppNotification;
+import 'package:flutter/material.dart'
+    show
+        AppBar,
+        BorderRadius,
+        BoxDecoration,
+        BuildContext,
+        Card,
+        Center,
+        CircleAvatar,
+        Colors,
+        Column,
+        Container,
+        CrossAxisAlignment,
+        EdgeInsets,
+        Expanded,
+        FontWeight,
+        ListTile,
+        ListView,
+        MainAxisAlignment,
+        MemoryImage,
+        Padding,
+        Radius,
+        Row,
+        Scaffold,
+        SingleTickerProviderStateMixin,
+        SizedBox,
+        State,
+        StatefulWidget,
+        Tab,
+        TabBar,
+        TabBarView,
+        TabController,
+        Text,
+        TextStyle,
+        Theme,
+        Widget;
+import 'package:provider/provider.dart' show Consumer; // Already uses show
+import 'package:intl/intl.dart' show DateFormat; // Already uses show
+import 'dart:convert' show base64Decode; // Already uses show
+import '../providers/notification_provider.dart'
+    show NotificationProvider; // Already uses show
+import '../models/notification_model.dart'
+    show AppNotification; // Already uses show
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

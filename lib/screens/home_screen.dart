@@ -1,12 +1,52 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'dart:convert';
+import 'package:flutter/material.dart'
+    show
+        AlertDialog,
+        AppBar,
+        BuildContext,
+        Card,
+        Column,
+        CrossAxisAlignment,
+        EdgeInsets,
+        ElevatedButton,
+        Expanded,
+        FontWeight,
+        Icon,
+        IconButton,
+        Icons,
+        Image,
+        InkWell,
+        ListTile,
+        ListView,
+        MainAxisAlignment,
+        MainAxisSize,
+        MaterialPageRoute,
+        Navigator,
+        NeverScrollableScrollPhysics,
+        Padding,
+        RefreshIndicator,
+        Row,
+        Scaffold,
+        ScaffoldMessenger,
+        ScrollController,
+        SnackBar,
+        SnackBarAction,
+        State,
+        StatefulWidget,
+        Text,
+        TextButton,
+        TextOverflow,
+        TextStyle,
+        Theme,
+        Widget,
+        showDialog;
+import 'package:provider/provider.dart' show Consumer, Provider;
+import 'package:intl/intl.dart' show DateFormat;
+import 'dart:convert' show base64Decode;
 
-import '../providers/notification_provider.dart';
-import '../models/notification_model.dart';
-import '../widgets/empty_state.dart';
-import 'notification_detail_screen.dart';
+import '../providers/notification_provider.dart' show NotificationProvider;
+import '../models/notification_model.dart' show AppNotification;
+import '../widgets/empty_state.dart' show EmptyState;
+import 'notification_detail_screen.dart' show NotificationDetailScreen;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

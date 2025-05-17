@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "notification_hub" "\0"
+            VALUE "CompanyName", "in.appkari" "\0"
+            VALUE "FileDescription", "notihub" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "notification_hub" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "notification_hub.exe" "\0"
-            VALUE "ProductName", "notification_hub" "\0"
+            VALUE "InternalName", "notihub" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 in.appkari. All rights reserved." "\0"
+            VALUE "OriginalFilename", "notihub.exe" "\0"
+            VALUE "ProductName", "notihub" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

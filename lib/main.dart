@@ -1,19 +1,46 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart'
+    show
+        BuildContext,
+        ColorScheme,
+        Colors,
+        MaterialApp,
+        StatelessWidget,
+        ThemeData,
+        Widget,
+        WidgetsFlutterBinding,
+        debugPrint,
+        runApp;
+// runApp is a top-level function and doesn't need to be shown explicitly.
+import 'package:provider/provider.dart' show ChangeNotifierProvider;
+import 'package:flutter/services.dart' show DeviceOrientation, SystemChrome;
+import 'package:notification_listener_service/notification_listener_service.dart'
+    show NotificationListenerService;
 
-import 'providers/notification_provider.dart';
-import 'screens/home_screen.dart';
-import 'screens/settings_screen.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/app_management_screen.dart';
+import 'providers/notification_provider.dart' show NotificationProvider;
+import 'screens/home_screen.dart' show HomeScreen;
+import 'screens/settings_screen.dart' show SettingsScreen;
+import 'screens/dashboard_screen.dart' show DashboardScreen;
+import 'screens/app_management_screen.dart' show AppManagementScreen;
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Initialize notification listener service
+  try {
+    // Check if permission is granted
+    final hasPermission =
+        await NotificationListenerService.isPermissionGranted();
+    if (!hasPermission) {
+      // This will be handled in the NotificationService class
+      // but we pre-check here to ensure early initialization
+    }
+  } catch (e) {
+    debugPrint('Error initializing notification listener service: $e');
+  }
 
   runApp(const MyApp());
 }

@@ -1,6 +1,6 @@
 {
-    "name": "notification_hub",
-    "short_name": "notification_hub",
+    "name": "Notification Hub",
+    "short_name": "Notification Hub",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

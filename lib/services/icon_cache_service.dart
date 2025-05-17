@@ -1,6 +1,7 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert' show base64Decode;
+import 'package:flutter/foundation.dart' show Uint8List, debugPrint;
+import 'package:shared_preferences/shared_preferences.dart'
+    show SharedPreferences;
 
 class IconCacheService {
   static final IconCacheService _instance = IconCacheService._internal();

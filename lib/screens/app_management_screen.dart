@@ -1,8 +1,32 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/notification_provider.dart';
-import 'package:installed_apps/installed_apps.dart'; // Changed import
-import 'package:installed_apps/app_info.dart';
+import 'package:flutter/material.dart'
+    show
+        AppBar,
+        BorderRadius,
+        BuildContext,
+        Center,
+        CircularProgressIndicator,
+        Column,
+        EdgeInsets,
+        Expanded,
+        Icon,
+        Icons,
+        Image,
+        InputDecoration,
+        ListTile,
+        ListView,
+        OutlineInputBorder,
+        Padding,
+        Scaffold,
+        State,
+        StatefulWidget,
+        Text,
+        TextField,
+        Widget;
+import 'package:provider/provider.dart' show Provider;
+import '../providers/notification_provider.dart' show NotificationProvider;
+import 'package:installed_apps/installed_apps.dart'
+    show InstalledApps; // Changed import
+import 'package:installed_apps/app_info.dart' show AppInfo;
 
 class AppManagementScreen extends StatefulWidget {
   const AppManagementScreen({super.key});
@@ -31,7 +55,7 @@ class _AppManagementScreenState extends State<AppManagementScreen> {
       final apps = await InstalledApps.getInstalledApps(
         true, // shouldReturnIcons
         false, // shouldReturnSystemApps
-        '' // packageNamePrefix
+        '', // packageNamePrefix
       );
 
       // Load excluded status for all apps
@@ -49,9 +73,10 @@ class _AppManagementScreenState extends State<AppManagementScreen> {
           final isBExcluded = excludedApps.contains(b.packageName);
           if (isAExcluded != isBExcluded) {
             return isAExcluded ? -1 : 1;
-
           }
-          return a.name.compareTo(b.name); // Changed appName to name and added null check
+          return a.name.compareTo(
+            b.name,
+          ); // Changed appName to name and added null check
         });
         _filterApps();
         _isLoading = false;
@@ -65,20 +90,25 @@ class _AppManagementScreenState extends State<AppManagementScreen> {
 
   void _filterApps() {
     setState(() {
-      _filteredApps = _apps
-          .where((app) =>
-              app.name.toLowerCase().contains(_searchQuery.toLowerCase()) || // Changed appName to name and added null check
-              app.packageName.toLowerCase().contains(_searchQuery.toLowerCase()))
-          .toList();
+      _filteredApps =
+          _apps
+              .where(
+                (app) =>
+                    app.name.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) || // Changed appName to name and added null check
+                    app.packageName.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ),
+              )
+              .toList();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Apps'),
-      ),
+      appBar: AppBar(title: const Text('Manage Apps')),
       body: Column(
         children: [
           Padding(
@@ -100,32 +130,38 @@ class _AppManagementScreenState extends State<AppManagementScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredApps.isEmpty
+            child:
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _filteredApps.isEmpty
                     ? const Center(child: Text('No apps found.'))
                     : ListView.builder(
-                        itemCount: _filteredApps.length,
-                        itemBuilder: (context, index) {
-                          final app = _filteredApps[index];
-                          return ListTile(
-                            leading: app.icon != null ? Image.memory(app.icon!) : null, // Changed icon path
-                            title: Text(app.name), // Changed appName to name and added null check
-                            subtitle: Text(app.packageName),
-                            // trailing: Consumer<NotificationProvider>(
-                            //   builder: (context, provider, child) {
-                            //     final isExcluded = provider.excludedApps.contains(app.packageName);
-                            //     return Switch(
-                            //       value: !isExcluded,
-                            //       onChanged: (value) {
-                            //         provider.toggleAppExcluded(app.packageName, !value);
-                            //       },
-                            //     );
-                            //   },
-                            // ),
-                          );
-                        },
-                      ),
+                      itemCount: _filteredApps.length,
+                      itemBuilder: (context, index) {
+                        final app = _filteredApps[index];
+                        return ListTile(
+                          leading:
+                              app.icon != null
+                                  ? Image.memory(app.icon!)
+                                  : null, // Changed icon path
+                          title: Text(
+                            app.name,
+                          ), // Changed appName to name and added null check
+                          subtitle: Text(app.packageName),
+                          // trailing: Consumer<NotificationProvider>(
+                          //   builder: (context, provider, child) {
+                          //     final isExcluded = provider.excludedApps.contains(app.packageName);
+                          //     return Switch(
+                          //       value: !isExcluded,
+                          //       onChanged: (value) {
+                          //         provider.toggleAppExcluded(app.packageName, !value);
+                          //       },
+                          //     );
+                          //   },
+                          // ),
+                        );
+                      },
+                    ),
           ),
         ],
       ),

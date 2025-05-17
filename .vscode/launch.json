@@ -5,18 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "notification_hub",
+            "name": "notihub",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "notification_hub (profile mode)",
+            "name": "notihub (profile mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "notification_hub (release mode)",
+            "name": "notihub (release mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"

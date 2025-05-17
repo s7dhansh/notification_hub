@@ -1,4 +1,21 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'
+    show
+        BuildContext,
+        Center,
+        Colors,
+        Column,
+        EdgeInsets,
+        FontWeight,
+        Icon,
+        IconData,
+        MainAxisAlignment,
+        Padding,
+        SizedBox,
+        StatelessWidget,
+        Text,
+        TextAlign,
+        TextStyle,
+        Widget;
 
 class EmptyState extends StatelessWidget {
   final IconData icon;

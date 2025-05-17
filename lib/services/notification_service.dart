@@ -1,12 +1,31 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:math' as math;
+import 'dart:async' show Future, Stream, StreamController, Timer;
+import 'dart:convert' show base64Encode, json;
+import 'dart:math' as math show Random;
 
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    show
+        AndroidInitializationSettings,
+        DarwinInitializationSettings,
+        FlutterLocalNotificationsPlugin,
+        InitializationSettings,
+        AndroidNotificationDetails,
+        DarwinNotificationDetails,
+        NotificationDetails,
+        Importance,
+        Priority;
+import 'package:notification_listener_service/notification_event.dart'
+    show ServiceNotificationEvent;
+import 'package:notification_listener_service/notification_listener_service.dart'
+    show NotificationListenerService;
+import 'package:permission_handler/permission_handler.dart'
+    show Permission, PermissionActions, PermissionStatusGetters;
+import 'package:shared_preferences/shared_preferences.dart'
+    show SharedPreferences;
+import 'package:installed_apps/app_info.dart' show AppInfo;
+import 'package:installed_apps/installed_apps.dart' show InstalledApps;
+import 'package:flutter/services.dart';
 
-import '../models/notification_model.dart';
+import '../models/notification_model.dart' show AppNotification;
 
 class NotificationService {
   // Singleton pattern
@@ -42,6 +61,10 @@ class NotificationService {
   ];
 
   bool _useMockNotifications = false;
+
+  static const MethodChannel _notificationChannel = MethodChannel(
+    'notification_capture',
+  );
 
   Future<bool> getUseMockNotifications() async {
     final prefs = await SharedPreferences.getInstance();
@@ -91,35 +114,135 @@ class NotificationService {
     await getExcludedApps();
 
     // Request notification permission
-    await requestPermission();
+    bool hasPermission = await requestPermission();
+
+    // Initialize notification listener service
+    await _initializeNotificationListener();
 
     // Start listening if permission is granted
-    if (await Permission.notification.isGranted) {
+    if (hasPermission) {
       await startListening();
     }
+
+    initNativeNotificationListener();
+  }
+
+  // Initialize notification listener service
+  Future<void> _initializeNotificationListener() async {
+    try {
+      // Listen for notification events
+      NotificationListenerService.notificationsStream.listen(
+        _onNotificationReceived,
+      );
+      // The service starts implicitly when the stream is listened to
+      // and permission is granted. Explicit startService call is handled in startListening.
+    } catch (e) {
+      print('Error initializing notification listener: $e');
+    }
+  }
+
+  // Handle received notifications from the system
+  Future<void> _onNotificationReceived(ServiceNotificationEvent event) async {
+    // Skip if this app is excluded
+    if (await isAppExcluded(event.packageName ?? '')) return;
+
+    // Get app info
+    String appName = 'Unknown App';
+    String? iconData;
+
+    try {
+      // Try to get app info
+      List<AppInfo> apps = await InstalledApps.getInstalledApps(true, true);
+      AppInfo? appInfo = apps.firstWhere(
+        (app) => app.packageName == event.packageName,
+        orElse: () => throw StateError('App not found'),
+      );
+
+      appName = appInfo.name;
+      // Convert app icon to base64 if available
+      if (appInfo.icon != null) {
+        iconData = base64Encode(appInfo.icon!);
+      }
+    } catch (e) {
+      // Fallback to package name parsing if app info fails
+      appName = _getAppNameFromPackage(event.packageName ?? '');
+    }
+
+    // Create notification object
+    final appNotification = AppNotification(
+      id: '${event.packageName}_${DateTime.now().millisecondsSinceEpoch}',
+      packageName: event.packageName ?? '',
+      appName: appName,
+      title: event.title ?? '',
+      body: event.content ?? '',
+      timestamp: DateTime.now(),
+      iconData: iconData,
+      isRemoved: false,
+    );
+
+    // Save notification to storage
+    await _saveNotification(appNotification);
+
+    // Broadcast notification to listeners
+    _notificationsStreamController.add(appNotification);
   }
 
   // Request notification permission
   Future<bool> requestPermission() async {
-    final status = await Permission.notification.request();
-    return status.isGranted;
+    // Request notification permission for Android 13+
+    final notificationPermissionStatus =
+        await Permission.notification.request();
+
+    // Then, handle notification listener permission
+    bool hasListenerPermission =
+        await NotificationListenerService.isPermissionGranted();
+    if (!hasListenerPermission) {
+      hasListenerPermission =
+          await NotificationListenerService.requestPermission();
+    }
+
+    return notificationPermissionStatus.isGranted && hasListenerPermission;
   }
 
   // Start listening to notifications
   Future<void> startListening() async {
-    if (_isListening) return;
-
-    _isListening = true;
-
-    // Check if mock notifications should be used
-    if (await getUseMockNotifications()) {
-      _startMockNotifications();
+    if (_isListening) {
+      return; // Already listening or an attempt is in progress.
     }
 
-    // Load existing notifications
-    final notifications = await getNotifications();
-    for (final notification in notifications) {
-      _notificationsStreamController.add(notification);
+    _isListening = true; // Set flag to indicate an attempt to start.
+
+    try {
+      bool hasPermission =
+          await NotificationListenerService.isPermissionGranted();
+
+      if (!hasPermission) {
+        await requestPermission(); // Request permission.
+        hasPermission =
+            await NotificationListenerService.isPermissionGranted(); // Re-check after request.
+      }
+
+      if (hasPermission) {
+        // Listening to NotificationListenerService.notificationsStream handles service startup implicitly.
+        // _isListening remains true, indicating service is active or start was successful.
+
+        // Continue with other setup tasks if service started.
+        if (await getUseMockNotifications()) {
+          _startMockNotifications();
+        }
+      } else {
+        // Permission was not granted, service cannot start.
+        _isListening = false; // Reset flag.
+        // Optionally, log this situation or inform the user through other means.
+        // print("Notification listener permission not granted. Service not started.");
+      }
+    } catch (e, s) {
+      // An error occurred during the startup process.
+      _isListening = false; // Reset flag as startup failed.
+      // Log the error for debugging. Consider using a proper logging framework.
+      print('Failed to start notification listener: $e\nStackTrace: $s');
+      // Consider rethrowing if the caller needs to handle failures.
+      // rethrow;
     }
   }
 
@@ -128,6 +251,13 @@ class NotificationService {
     _isListening = false;
     _mockTimer?.cancel();
     _mockTimer = null;
+
+    // Stop the notification listener service
+    // Unsubscribing from NotificationListenerService.notificationsStream (if a subscription is stored)
+    // or simply setting _isListening to false and cancelling timers should suffice.
+    // The package does not offer an explicit stopService method.
+    // The service lifecycle is managed by the Android system based on bound clients (the stream listener).
+    // If no one is listening, the service can be stopped by the system.
   }
 
   // Generate a mock notification for testing
@@ -358,10 +488,55 @@ class NotificationService {
     }
   }
 
+  // Send a test notification
+  Future<void> sendTestNotification({
+    String title = 'Test Notification',
+    String body = 'This is a test notification',
+    String? payload,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'test_channel',
+      'Test Notifications',
+      channelDescription: 'Channel for test notifications',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _localNotificationsPlugin.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
+  }
+
   // Dispose resources
   void dispose() {
     _notificationsStreamController.close();
     stopListening();
+  }
+
+  void initNativeNotificationListener() {
+    _notificationChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onNotificationPosted') {
+        // Handle the captured notification here
+        // Example: print or process notification data
+        print('Captured notification: \\${call.arguments}');
+        // You can parse call.arguments and add to your notification stream if needed
+      }
+    });
   }
 }
 
