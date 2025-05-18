@@ -4,9 +4,7 @@ import 'package:flutter/material.dart'
         Alignment,
         AppBar,
         BuildContext,
-        CircularProgressIndicator,
         Colors,
-        ConnectionState,
         Container,
         DismissDirection,
         Dismissible,
@@ -15,7 +13,6 @@ import 'package:flutter/material.dart'
         ExpansionTile,
         FutureBuilder,
         Icon,
-        IconButton,
         Icons,
         ListTile,
         ListView,
@@ -145,76 +142,6 @@ class SettingsScreen extends StatelessWidget {
 
               const Divider(),
 
-              // Mock Notifications Toggle
-              FutureBuilder<bool>(
-                future: provider.getUseMockNotifications(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const ListTile(
-                      title: Text('Use Mock Notifications'),
-                      subtitle: Text('Loading...'),
-                      trailing: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-                  }
-
-                  final useMockNotifications = snapshot.data ?? false;
-                  return ListTile(
-                    title: const Text('Use Mock Notifications'),
-                    subtitle: Text(
-                      useMockNotifications
-                          ? 'Mock notifications enabled - generating test data'
-                          : 'Using real system notifications',
-                    ),
-                    trailing: Switch(
-                      value: useMockNotifications,
-                      onChanged: (value) async {
-                        await provider.setUseMockNotifications(value);
-                        if (value && !provider.isListening) {
-                          await provider.startListening();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Notification listener auto-enabled for mock notifications',
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  );
-                },
-              ),
-
-              const Divider(),
-
-              // Test Notification Button
-              ListTile(
-                title: const Text('Send Test Notification'),
-                subtitle: const Text('Send a test notification to verify functionality'),
-                trailing: const Icon(Icons.notifications_active),
-                onTap: () async {
-                  await provider.sendTestNotification(
-                    title: 'Test Notification',
-                    body: 'This is a test notification sent from Notification Hub',
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Test notification sent'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                },
-              ),
-
-              const Divider(),
               ListTile(
                 title: const Text('About'),
                 subtitle: const Text(
@@ -308,6 +235,7 @@ class SettingsScreen extends StatelessWidget {
                             ),
                             onDismissed: (direction) async {
                               await provider.includeApp(packageName);
+                              if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
@@ -319,17 +247,23 @@ class SettingsScreen extends StatelessWidget {
                             child: ListTile(
                               title: Text(appName),
                               subtitle: Text(packageName),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.restore),
-                                onPressed: () async {
-                                  if (!context.mounted) return;
-                                  await provider.includeApp(packageName);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '$appName will be tracked again',
-                                      ),
-                                    ),
+                              trailing: Consumer<NotificationProvider>(
+                                builder: (context, provider, child) {
+                                  final isExcluded = provider.notifications.any(
+                                    (n) => n.packageName == packageName,
+                                  );
+                                  return Switch(
+                                    value: !isExcluded,
+                                    onChanged: (value) async {
+                                      if (value) {
+                                        await provider.includeApp(packageName);
+                                      } else {
+                                        await provider.excludeApp(packageName);
+                                      }
+                                      if (context.mounted) {
+                                        Navigator.of(context).pop();
+                                      }
+                                    },
                                   );
                                 },
                               ),

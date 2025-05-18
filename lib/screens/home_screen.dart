@@ -3,12 +3,14 @@ import 'package:flutter/material.dart'
         AlertDialog,
         AppBar,
         BuildContext,
+        Builder,
         Card,
         Column,
         CrossAxisAlignment,
         EdgeInsets,
         ElevatedButton,
         Expanded,
+        FloatingActionButton,
         FontWeight,
         Icon,
         IconButton,
@@ -38,7 +40,8 @@ import 'package:flutter/material.dart'
         TextStyle,
         Theme,
         Widget,
-        showDialog;
+        showDialog,
+        debugPrint;
 import 'package:provider/provider.dart' show Consumer, Provider;
 import 'package:intl/intl.dart' show DateFormat;
 import 'dart:convert' show base64Decode;
@@ -97,13 +100,13 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Notification Hub'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.dashboard),
-            onPressed: () {
-              // Navigate to dashmon page
-              Navigator.pushNamed(context, '/dashmon');
-            },
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.dashboard),
+          //   onPressed: () {
+          //     // Navigate to dashmon page
+          //     Navigator.pushNamed(context, '/dashmon');
+          //   },
+          // ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -121,6 +124,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Consumer<NotificationProvider>(
         builder: (context, provider, child) {
+          debugPrint(
+            'HomeScreen: notifications count = \\${provider.notifications.length}',
+          );
           // Show permission request if not listening
           if (!provider.isListening) {
             return _buildPermissionRequest(provider);
@@ -141,6 +147,31 @@ class _HomeScreenState extends State<HomeScreen> {
           // Build the notification list
           return _buildNotificationList(groupedNotifications);
         },
+      ),
+      floatingActionButton: Builder(
+        builder:
+            (context) => FloatingActionButton.extended(
+              icon: const Icon(Icons.notifications_active),
+              label: const Text('Send Test Notification'),
+              onPressed: () async {
+                await Provider.of<NotificationProvider>(
+                  context,
+                  listen: false,
+                ).sendTestNotification(
+                  title: 'Test Notification',
+                  body:
+                      'This is a test notification sent from Notification Hub',
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Test notification sent'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
       ),
     );
   }

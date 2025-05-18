@@ -1,7 +1,8 @@
 import 'dart:async' show StreamSubscription;
 import 'package:flutter/foundation.dart'
     show
-        ChangeNotifier; // Already uses show, no change needed but included for completeness of the block
+        ChangeNotifier,
+        debugPrint; // Already uses show, no change needed but included for completeness of the block
 import '../models/notification_model.dart' show AppNotification;
 import '../services/notification_service.dart' show NotificationService;
 import '../services/icon_cache_service.dart' show IconCacheService;
@@ -44,6 +45,9 @@ class NotificationProvider with ChangeNotifier {
     _subscription = _notificationService.notificationsStream.listen((
       notification,
     ) async {
+      debugPrint(
+        'Provider received notification: \\${notification.title} from \\${notification.packageName}',
+      );
       if (notification.iconData != null) {
         await _iconCacheService.cacheIcon(
           notification.packageName,
@@ -66,6 +70,9 @@ class NotificationProvider with ChangeNotifier {
           _notifications.insert(0, notification);
         }
       }
+      debugPrint(
+        'Provider notifications list now has \\${_notifications.length} items',
+      );
       notifyListeners();
     });
   }
@@ -187,15 +194,6 @@ class NotificationProvider with ChangeNotifier {
     return groupedNotifications;
   }
 
-  Future<bool> getUseMockNotifications() async {
-    return _notificationService.getUseMockNotifications();
-  }
-
-  Future<void> setUseMockNotifications(bool value) async {
-    await _notificationService.setUseMockNotifications(value);
-    notifyListeners();
-  }
-
   // Add load more notifications method
   Future<bool> loadMoreNotifications() async {
     final currentLength = _notifications.length;
@@ -220,10 +218,7 @@ class NotificationProvider with ChangeNotifier {
     String title = 'Test Notification',
     String body = 'This is a test notification',
   }) async {
-    await _notificationService.sendTestNotification(
-      title: title,
-      body: body,
-    );
+    await _notificationService.sendTestNotification(title: title, body: body);
   }
 
   @override
