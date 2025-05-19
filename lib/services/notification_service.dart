@@ -1,25 +1,14 @@
-import 'dart:async' show Future, Stream, StreamController;
-import 'dart:convert' show json;
+import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'
-    show
-        AndroidInitializationSettings,
-        DarwinInitializationSettings,
-        FlutterLocalNotificationsPlugin,
-        InitializationSettings,
-        AndroidNotificationDetails,
-        DarwinNotificationDetails,
-        NotificationDetails,
-        Importance,
-        Priority;
-import 'package:permission_handler/permission_handler.dart'
-    show Permission, PermissionActions, PermissionStatusGetters;
-import 'package:shared_preferences/shared_preferences.dart'
-    show SharedPreferences;
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/notification_model.dart' show AppNotification;
+import 'icon_cache_service.dart';
+import '../models/notification_model.dart';
 
 class NotificationService {
   // Singleton pattern
@@ -40,7 +29,7 @@ class NotificationService {
   // Set of excluded package names
   Set<String> _excludedApps = {};
 
-  static const MethodChannel _notificationChannel = MethodChannel(
+  static final MethodChannel _notificationChannel = MethodChannel(
     'notification_capture',
   );
 
@@ -278,7 +267,7 @@ class NotificationService {
     String body = 'This is a test notification',
     String? payload,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       'test_channel',
       'Test Notifications',
       channelDescription: 'Channel for test notifications',
@@ -286,13 +275,13 @@ class NotificationService {
       priority: Priority.high,
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
 
-    const notificationDetails = NotificationDetails(
+    final notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -318,81 +307,52 @@ class NotificationService {
       debugPrint(
         'Received method call from native: ${call.method} with arguments: ${call.arguments} (type: ${call.arguments.runtimeType})',
       );
+      
       if (call.method == 'onNotificationPosted') {
         try {
           debugPrint('Captured notification: ${call.arguments}');
           final args = call.arguments as Map;
-          final extras = args['extras']?.toString() ?? '';
-
-          // Parse title and body from extras string
-          String title = '';
-          String body = '';
-          final titleMatch = RegExp(
-            r'android\.title=([^,}]*)',
-          ).firstMatch(extras);
-          final bodyMatch = RegExp(
-            r'android\.text=([^,}]*)',
-          ).firstMatch(extras);
-          if (titleMatch != null) title = titleMatch.group(1) ?? '';
-          if (bodyMatch != null) body = bodyMatch.group(1) ?? '';
-
-          final packageName = args['packageName'] ?? '';
+          
+          final packageName = args['packageName']?.toString() ?? '';
+          final appName = args['appName']?.toString() ?? packageName;
+          final title = args['title']?.toString() ?? '';
+          final body = args['body']?.toString() ?? '';
+          final iconData = args['iconData']?.toString();
+          
           await getExcludedApps(); // Ensure _excludedApps is up to date
           if (_excludedApps.contains(packageName)) {
             debugPrint('Notification from excluded app $packageName ignored.');
             return;
           }
-
+          
+          // Cache the icon if available
+          if (iconData != null && iconData.isNotEmpty) {
+            await IconCacheService().cacheIcon(packageName, iconData);
+          }
+          
           final appNotification = AppNotification(
             id: '${packageName}_${DateTime.now().millisecondsSinceEpoch}',
             packageName: packageName,
-            appName: packageName,
+            appName: appName,
             title: title,
             body: body,
             timestamp: DateTime.now(),
-            iconData: null,
+            iconData: iconData,
             isRemoved: false,
           );
+          
           await _saveNotification(appNotification);
           _notificationsStreamController.add(appNotification);
+          
+          // Remove the notification from the system tray if needed
           final key = args['key'];
           if (key != null) {
             await _notificationChannel.invokeMethod('removeNotification', {
               'key': key,
             });
           }
-        } catch (e, s) {
-          debugPrint('Error handling onNotificationPosted: $e\n$s');
-        }
-      }
-      // When the app is opened, capture all existing notifications and filter out excluded apps
-      if (call.method == 'onExistingNotifications') {
-        try {
-          final notifications = call.arguments as List<dynamic>?;
-          if (notifications != null) {
-            await getExcludedApps();
-            for (final n in notifications) {
-              final args = n as Map;
-              final packageName = args['packageName'] ?? '';
-              if (_excludedApps.contains(packageName)) continue;
-              final title = args['title'] ?? '';
-              final body = args['body'] ?? '';
-              final appNotification = AppNotification(
-                id: '${packageName}_${DateTime.now().millisecondsSinceEpoch}',
-                packageName: packageName,
-                appName: packageName,
-                title: title,
-                body: body,
-                timestamp: DateTime.now(),
-                iconData: null,
-                isRemoved: false,
-              );
-              await _saveNotification(appNotification);
-              _notificationsStreamController.add(appNotification);
-            }
-          }
-        } catch (e, s) {
-          debugPrint('Error handling onExistingNotifications: $e\n$s');
+        } catch (e, stackTrace) {
+          debugPrint('Error handling onNotificationPosted: $e\n$stackTrace');
         }
       }
     });

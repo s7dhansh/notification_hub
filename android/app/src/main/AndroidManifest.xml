@@ -42,7 +42,7 @@
             android:value="2" />
             
         <service
-            android:name="in.appkari.notihub.MyNotificationListenerService"
+            android:name="in.appkari.notihub.NotificationListenerService"
             android:label="Notification Listener"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">

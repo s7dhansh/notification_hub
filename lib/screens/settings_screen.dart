@@ -29,16 +29,29 @@ import 'package:flutter/material.dart'
         ValueKey,
         Widget,
         showAboutDialog,
-        showDialog;
+        showDialog,
+        DropdownButton,
+        DropdownMenuItem;
 import 'package:provider/provider.dart' show Consumer;
 import 'package:notification_listener_service/notification_listener_service.dart'
     show NotificationListenerService;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/notification_provider.dart' show NotificationProvider;
 import '../services/notification_service.dart' show NotificationService;
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  Future<void> _saveHistoryDays(int days) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('historyDays', days);
+  }
+
+  Future<int> _loadHistoryDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('historyDays') ?? 7;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -270,6 +283,36 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           );
                         }).toList(),
+                  );
+                },
+              ),
+              FutureBuilder<int>(
+                future: _loadHistoryDays(),
+                builder: (context, snapshot) {
+                  final value = snapshot.data ?? 7;
+                  return ListTile(
+                    title: const Text('Notification History Duration'),
+                    subtitle: const Text(
+                      'How many days of notifications to show',
+                    ),
+                    trailing: DropdownButton<int>(
+                      value: value,
+                      items:
+                          [1, 3, 7, 14, 30]
+                              .map(
+                                (d) => DropdownMenuItem(
+                                  value: d,
+                                  child: Text('$d days'),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (val) async {
+                        if (val != null) {
+                          await _saveHistoryDays(val);
+                          // HomeScreen will reload on next build
+                        }
+                      },
+                    ),
                   );
                 },
               ),

@@ -63,7 +63,12 @@ class _AppManagementScreenState extends State<AppManagementScreen> {
   }
 
   Future<void> _loadApps() async {
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       // Load all installed apps (without icons for speed)
       final apps = await InstalledApps.getInstalledApps(
@@ -71,6 +76,8 @@ class _AppManagementScreenState extends State<AppManagementScreen> {
         _showSystemApps, // shouldReturnSystemApps (controlled by switch)
         '',
       );
+      if (!mounted) return;
+
       final provider = Provider.of<NotificationProvider>(
         context,
         listen: false,

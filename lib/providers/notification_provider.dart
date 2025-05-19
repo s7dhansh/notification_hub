@@ -11,11 +11,13 @@ class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   final _iconCacheService = IconCacheService();
   List<AppNotification> _notifications = [];
+  final List<AppNotification> _notificationHistory = [];
   bool _isInitialized = false;
   StreamSubscription<AppNotification>? _subscription;
 
   // Getters
   List<AppNotification> get notifications => _notifications;
+  List<AppNotification> get notificationHistory => _notificationHistory;
   bool get isListening => _notificationService.isListening;
   bool get isInitialized => _isInitialized;
 
@@ -101,6 +103,12 @@ class NotificationProvider with ChangeNotifier {
 
   // Clear all notifications
   Future<void> clearAllNotifications() async {
+    // Add all current notifications to history
+    for (final notification in _notifications) {
+      await addToHistory(notification);
+    }
+
+    // Clear all notifications
     await _notificationService.clearAllNotifications();
     _notifications = [];
     notifyListeners();
@@ -149,6 +157,16 @@ class NotificationProvider with ChangeNotifier {
 
   // Add method to clear notifications for a specific app
   Future<void> clearAppNotifications(String packageName) async {
+    // Find all notifications for this app
+    final appNotifications =
+        _notifications.where((n) => n.packageName == packageName).toList();
+
+    // Add all to history
+    for (final notification in appNotifications) {
+      await addToHistory(notification);
+    }
+
+    // Remove from active notifications
     _notifications.removeWhere((n) => n.packageName == packageName);
     await _notificationService.clearAppNotifications(packageName);
     notifyListeners();
@@ -156,6 +174,16 @@ class NotificationProvider with ChangeNotifier {
 
   // Add method to remove a single notification
   Future<void> removeNotification(String id) async {
+    // Find the notification before removing it
+    final notification = _notifications.firstWhere(
+      (n) => n.id == id,
+      orElse: () => throw Exception('Notification not found'),
+    );
+
+    // Add to history before removing
+    await addToHistory(notification);
+
+    // Remove from active notifications
     _notifications.removeWhere((n) => n.id == id);
     await _notificationService.removeNotification(id);
     notifyListeners();
@@ -219,6 +247,23 @@ class NotificationProvider with ChangeNotifier {
     String body = 'This is a test notification',
   }) async {
     await _notificationService.sendTestNotification(title: title, body: body);
+  }
+
+  // Add to notification history
+  Future<void> addToHistory(AppNotification notification) async {
+    if (!_notificationHistory.any((n) => n.id == notification.id)) {
+      _notificationHistory.insert(0, notification);
+      // TODO: Persist history and enforce max days
+      notifyListeners();
+    }
+  }
+
+  // Restore a notification from history (undo)
+  Future<void> restoreNotification(AppNotification notification) async {
+    _notifications.insert(0, notification);
+    _notificationHistory.removeWhere((n) => n.id == notification.id);
+    // TODO: Persist history and notifications
+    notifyListeners();
   }
 
   @override

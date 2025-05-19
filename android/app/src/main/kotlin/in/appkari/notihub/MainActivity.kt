@@ -18,13 +18,13 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-        MyNotificationListenerService.channel = channel
+        NotificationListenerService.channel = channel
 
         channel.setMethodCallHandler { call, result ->
             if (call.method == "removeNotification") {
                 val key = call.argument<String>("key")
                 if (key != null) {
-                    MyNotificationListenerService.removeNotificationByKey(key)
+                    NotificationListenerService.removeNotificationByKey(key)
                     result.success(null)
                 } else {
                     result.error("INVALID_KEY", "Key is null", null)

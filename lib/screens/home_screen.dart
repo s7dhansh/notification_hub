@@ -1,35 +1,47 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart'
     show
         AlertDialog,
+        Alignment,
         AppBar,
+        BorderRadius,
+        BoxDecoration,
         BuildContext,
         Builder,
         Card,
+        CircleAvatar,
+        Colors,
         Column,
+        Container,
         CrossAxisAlignment,
+        DismissDirection,
+        Dismissible,
         EdgeInsets,
         ElevatedButton,
         Expanded,
         FloatingActionButton,
         FontWeight,
+        FutureBuilder,
         Icon,
         IconButton,
         Icons,
-        Image,
         InkWell,
         ListTile,
         ListView,
         MainAxisAlignment,
         MainAxisSize,
         MaterialPageRoute,
+        MemoryImage,
         Navigator,
-        NeverScrollableScrollPhysics,
         Padding,
         RefreshIndicator,
+        RoundedRectangleBorder,
         Row,
         Scaffold,
         ScaffoldMessenger,
         ScrollController,
+        SizedBox,
         SnackBar,
         SnackBarAction,
         State,
@@ -39,9 +51,11 @@ import 'package:flutter/material.dart'
         TextOverflow,
         TextStyle,
         Theme,
+        ValueKey,
         Widget,
-        showDialog,
-        debugPrint;
+        debugPrint,
+        showDialog;
+import 'package:notihub/services/icon_cache_service.dart';
 import 'package:provider/provider.dart' show Consumer, Provider;
 import 'package:intl/intl.dart' show DateFormat;
 import 'dart:convert' show base64Decode;
@@ -50,6 +64,7 @@ import '../providers/notification_provider.dart' show NotificationProvider;
 import '../models/notification_model.dart' show AppNotification;
 import '../widgets/empty_state.dart' show EmptyState;
 import 'notification_detail_screen.dart' show NotificationDetailScreen;
+import 'notification_history_screen.dart' show NotificationHistoryScreen;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _hasMoreData = true;
   bool _isLoadingMore = false;
+  AppNotification? _lastDismissed;
 
   @override
   void initState() {
@@ -100,13 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Notification Hub'),
         actions: [
-          // IconButton(
-          //   icon: const Icon(Icons.dashboard),
-          //   onPressed: () {
-          //     // Navigate to dashmon page
-          //     Navigator.pushNamed(context, '/dashmon');
-          //   },
-          // ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -118,6 +127,18 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.delete_sweep),
             onPressed: () {
               _confirmClearNotifications(context);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Notification History',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationHistoryScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -184,8 +205,8 @@ class _HomeScreenState extends State<HomeScreen> {
           'This app needs notification access permissions to capture and display notifications.',
       action: ElevatedButton(
         onPressed: () async {
-          if (!context.mounted) return;
           final granted = await provider.requestPermission();
+          if (!mounted) return;
           if (!granted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -206,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, List<AppNotification>> groupedNotifications,
   ) {
     final apps = groupedNotifications.keys.toList();
-
     return RefreshIndicator(
       onRefresh: () async {
         await Provider.of<NotificationProvider>(
@@ -221,82 +241,187 @@ class _HomeScreenState extends State<HomeScreen> {
               controller: _scrollController,
               itemCount: apps.length,
               itemBuilder: (context, index) {
-                final appName = apps[index];
-                final appNotifications = groupedNotifications[appName]!;
-                final packageName = appNotifications.first.packageName;
+                final packageName = apps[index];
+                final appNotifications = groupedNotifications[packageName]!;
+                if (appNotifications.isEmpty) return const SizedBox.shrink();
 
-                // Get the icon of the first notification for this app
-                final iconData = appNotifications.first.iconData;
-                Widget leadingWidget;
+                // Use appName from the most recent notification, fallback to package name's last segment
+                final mostRecentNotification = appNotifications.first;
+                final appName =
+                    (mostRecentNotification.appName.isNotEmpty &&
+                            mostRecentNotification.appName !=
+                                mostRecentNotification.packageName)
+                        ? mostRecentNotification.appName
+                        : packageName.split('.').last;
 
-                if (iconData != null && iconData.isNotEmpty) {
-                  // If we have an icon, decode and display it
-                  try {
-                    leadingWidget = Image.memory(
-                      base64Decode(iconData),
-                      width: 24,
-                      height: 24,
+                // Build the leading widget with the app icon
+                return FutureBuilder<Uint8List?>(
+                  future: IconCacheService().getIcon(packageName),
+                  builder: (context, snapshot) {
+                    Widget leadingWidget;
+
+                    if (snapshot.hasData && snapshot.data != null) {
+                      // Use cached icon if available
+                      leadingWidget = CircleAvatar(
+                        backgroundImage: MemoryImage(snapshot.data!),
+                        backgroundColor: Colors.transparent,
+                        radius: 22,
+                      );
+                    } else if (mostRecentNotification.iconData?.isNotEmpty ==
+                        true) {
+                      // Fallback to the icon from the notification
+                      try {
+                        leadingWidget = CircleAvatar(
+                          backgroundImage: MemoryImage(
+                            base64Decode(mostRecentNotification.iconData!),
+                          ),
+                          backgroundColor: Colors.transparent,
+                          radius: 22,
+                        );
+                      } catch (e) {
+                        leadingWidget = _buildDefaultIcon();
+                      }
+                    } else {
+                      // Default icon if no icon is available
+                      leadingWidget = _buildDefaultIcon();
+                    }
+
+                    return _buildNotificationCard(
+                      appName: appName,
+                      packageName: packageName,
+                      appNotifications: appNotifications,
+                      leadingWidget: leadingWidget,
                     );
-                  } catch (e) {
-                    // If decoding fails, show fallback icon
-                    leadingWidget = const Icon(Icons.notifications);
-                  }
-                } else {
-                  // If no icon data, show fallback icon
-                  leadingWidget = const Icon(Icons.notifications);
-                }
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: leadingWidget,
-                        title: Text(
-                          appName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${appNotifications.length}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () {
-                                _showClearAppNotificationsDialog(packageName);
-                              },
-                            ),
-                          ],
-                        ),
-                        onLongPress: () {
-                          _showExcludeAppDialog(packageName);
-                        },
-                      ),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: appNotifications.length,
-                        itemBuilder: (context, index) {
-                          return _buildNotificationItem(
-                            appNotifications[index],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                  },
                 );
               },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultIcon() {
+    return CircleAvatar(
+      backgroundColor: Colors.grey[200],
+      child: const Icon(Icons.notifications, color: Colors.grey),
+    );
+  }
+
+  Widget _buildNotificationCard({
+    required String appName,
+    required String packageName,
+    required List<AppNotification> appNotifications,
+    required Widget leadingWidget,
+  }) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            ListTile(
+              leading: leadingWidget,
+              title: Text(
+                appName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${appNotifications.length}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.redAccent,
+                    ),
+                    onPressed: () {
+                      _showClearAppNotificationsDialog(packageName);
+                    },
+                  ),
+                ],
+              ),
+              onLongPress: () {
+                _showExcludeAppDialog(packageName);
+              },
+            ),
+            ...appNotifications.map(
+              (notification) => Dismissible(
+                key: ValueKey(notification.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20.0),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (direction) async {
+                  if (!context.mounted) return;
+
+                  setState(() {
+                    _lastDismissed = notification;
+                  });
+                  await Provider.of<NotificationProvider>(
+                    context,
+                    listen: false,
+                  ).removeNotification(notification.id);
+
+                  if (!mounted) return;
+                  await Provider.of<NotificationProvider>(
+                    context,
+                    listen: false,
+                  ).addToHistory(notification);
+
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Notification deleted'),
+                      action: SnackBarAction(
+                        label: 'UNDO',
+                        onPressed: () async {
+                          if (_lastDismissed != null) {
+                            await Provider.of<NotificationProvider>(
+                              context,
+                              listen: false,
+                            ).restoreNotification(_lastDismissed!);
+                            if (context.mounted) {
+                              setState(() {
+                                _lastDismissed = null;
+                              });
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                },
+                child: _buildNotificationItem(notification),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -315,12 +440,33 @@ class _HomeScreenState extends State<HomeScreen> {
     String timeText;
 
     if (notificationDate == today) {
-      timeText = 'Today, ${timeFormat.format(notification.timestamp)}';
+      timeText = 'Today, \\${timeFormat.format(notification.timestamp)}';
     } else if (notificationDate == today.subtract(const Duration(days: 1))) {
-      timeText = 'Yesterday, ${timeFormat.format(notification.timestamp)}';
+      timeText = 'Yesterday, \\${timeFormat.format(notification.timestamp)}';
     } else {
       timeText =
-          '${dateFormat.format(notification.timestamp)}, ${timeFormat.format(notification.timestamp)}';
+          '\\${dateFormat.format(notification.timestamp)}, \\${timeFormat.format(notification.timestamp)}';
+    }
+
+    Widget leadingWidget;
+    if (notification.iconData != null && notification.iconData!.isNotEmpty) {
+      try {
+        leadingWidget = CircleAvatar(
+          backgroundImage: MemoryImage(base64Decode(notification.iconData!)),
+          backgroundColor: Colors.white,
+          radius: 18,
+        );
+      } catch (e) {
+        leadingWidget = const CircleAvatar(
+          radius: 18,
+          child: Icon(Icons.notifications),
+        );
+      }
+    } else {
+      leadingWidget = const CircleAvatar(
+        radius: 18,
+        child: Icon(Icons.notifications),
+      );
     }
 
     return InkWell(
@@ -342,10 +488,20 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                leadingWidget,
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    notification.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (notification.title.isNotEmpty)
+                        Text(
+                          notification.title,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ),
                 Text(
