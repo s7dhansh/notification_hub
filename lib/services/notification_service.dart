@@ -336,10 +336,17 @@ class NotificationService {
           if (titleMatch != null) title = titleMatch.group(1) ?? '';
           if (bodyMatch != null) body = bodyMatch.group(1) ?? '';
 
+          final packageName = args['packageName'] ?? '';
+          await getExcludedApps(); // Ensure _excludedApps is up to date
+          if (_excludedApps.contains(packageName)) {
+            debugPrint('Notification from excluded app $packageName ignored.');
+            return;
+          }
+
           final appNotification = AppNotification(
-            id: '${args['packageName']}_${DateTime.now().millisecondsSinceEpoch}',
-            packageName: args['packageName'] ?? '',
-            appName: args['packageName'] ?? 'Unknown App',
+            id: '${packageName}_${DateTime.now().millisecondsSinceEpoch}',
+            packageName: packageName,
+            appName: packageName,
             title: title,
             body: body,
             timestamp: DateTime.now(),
@@ -355,7 +362,37 @@ class NotificationService {
             });
           }
         } catch (e, s) {
-          debugPrint('Error handling onNotificationPosted: $e\\n$s');
+          debugPrint('Error handling onNotificationPosted: $e\n$s');
+        }
+      }
+      // When the app is opened, capture all existing notifications and filter out excluded apps
+      if (call.method == 'onExistingNotifications') {
+        try {
+          final notifications = call.arguments as List<dynamic>?;
+          if (notifications != null) {
+            await getExcludedApps();
+            for (final n in notifications) {
+              final args = n as Map;
+              final packageName = args['packageName'] ?? '';
+              if (_excludedApps.contains(packageName)) continue;
+              final title = args['title'] ?? '';
+              final body = args['body'] ?? '';
+              final appNotification = AppNotification(
+                id: '${packageName}_${DateTime.now().millisecondsSinceEpoch}',
+                packageName: packageName,
+                appName: packageName,
+                title: title,
+                body: body,
+                timestamp: DateTime.now(),
+                iconData: null,
+                isRemoved: false,
+              );
+              await _saveNotification(appNotification);
+              _notificationsStreamController.add(appNotification);
+            }
+          }
+        } catch (e, s) {
+          debugPrint('Error handling onExistingNotifications: $e\n$s');
         }
       }
     });
