@@ -28,6 +28,7 @@ class NotificationService {
 
   // Set of excluded package names
   Set<String> _excludedApps = {};
+  final String _excludedAppsKey = 'excludedApps'; // Key for SharedPreferences
 
   static final MethodChannel _notificationChannel = MethodChannel(
     'notification_capture',
@@ -35,265 +36,226 @@ class NotificationService {
 
   // Initialize notification service
   Future<void> initialize() async {
-    // Initialize local notifications
-    const initializationSettingsAndroid = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+    debugPrint('NotificationService: Initializing...');
+    await _loadExcludedApps(); // Load excluded apps on initialization
+    debugPrint(
+      'NotificationService: Initialized. Excluded apps loaded: $_excludedApps',
     );
-    final initializationSettingsIOS = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-    );
-    final initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-    await _localNotificationsPlugin.initialize(initializationSettings);
-
-    // Load excluded apps
-    await getExcludedApps();
-
-    // Request notification permission
-    bool hasPermission = await requestPermission();
-
-    // Start listening if permission is granted
-    if (hasPermission) {
-      await startListening();
-    }
-
-    initNativeNotificationListener();
   }
 
-  // Request notification permission
-  Future<bool> requestPermission() async {
-    // Request notification permission for Android 13+
-    final notificationPermissionStatus =
-        await Permission.notification.request();
-
-    return notificationPermissionStatus.isGranted;
-  }
-
-  // Start listening to notifications
+  // Start listening to platform notifications
   Future<void> startListening() async {
-    if (_isListening) {
-      return; // Already listening or an attempt is in progress.
-    }
-
-    _isListening = true; // Set flag to indicate an attempt to start.
-
-    try {
-      bool hasPermission = await requestPermission();
-
-      if (hasPermission) {
-        // Listening to NotificationListenerService.notificationsStream handles service startup implicitly.
-        // _isListening remains true, indicating service is active or start was successful.
-      } else {
-        // Permission was not granted, service cannot start.
-        _isListening = false; // Reset flag.
-        // Optionally, log this situation or inform the user through other means.
-        // print("Notification listener permission not granted. Service not started.");
+    if (!_isListening) {
+      debugPrint('NotificationService: Starting listening...');
+      try {
+        final bool? success = await _notificationChannel.invokeMethod(
+          'startListening',
+        );
+        if (success == true) {
+          _isListening = true;
+          debugPrint('NotificationService: Listening started.');
+        } else {
+          debugPrint(
+            'NotificationService: Failed to start listening: Method returned false.',
+          );
+        }
+      } on PlatformException catch (e) {
+        debugPrint(
+          'NotificationService: Failed to start listening: ${e.message}',
+        );
       }
-    } catch (e, s) {
-      // An error occurred during the startup process.
-      _isListening = false; // Reset flag as startup failed.
-      // Log the error for debugging. Consider using a proper logging framework.
-      debugPrint('Failed to start notification listener: $e\nStackTrace: $s');
-      // Consider rethrowing if the caller needs to handle failures.
-      // rethrow;
+      _notificationChannel.setMethodCallHandler(_handleMethodCall);
     }
   }
 
-  // Stop listening to notifications
+  // Stop listening to platform notifications
   Future<void> stopListening() async {
-    _isListening = false;
-
-    // Stop the notification listener service
-    // Unsubscribing from NotificationListenerService.notificationsStream (if a subscription is stored)
-    // or simply setting _isListening to false and cancelling timers should suffice.
-    // The package does not offer an explicit stopService method.
-    // The service lifecycle is managed by the Android system based on bound clients (the stream listener).
-    // If no one is listening, the service can be stopped by the system.
-  }
-
-  // Save notification to shared preferences
-  Future<void> _saveNotification(AppNotification notification) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final notificationsJson = prefs.getStringList('notifications') ?? [];
-      final notifications =
-          notificationsJson
-              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
-              .toList();
-
-      // Add new notification (or update if it exists by ID)
-      final existingIndex = notifications.indexWhere(
-        (n) => n.id == notification.id,
-      );
-      if (existingIndex >= 0) {
-        notifications[existingIndex] = notification;
-      } else {
-        notifications.add(notification);
+    if (_isListening) {
+      debugPrint('NotificationService: Stopping listening...');
+      try {
+        final bool? success = await _notificationChannel.invokeMethod(
+          'stopListening',
+        );
+        if (success == true) {
+          _isListening = false;
+          debugPrint('NotificationService: Listening stopped.');
+        } else {
+          debugPrint(
+            'NotificationService: Failed to stop listening: Method returned false.',
+          );
+        }
+      } on PlatformException catch (e) {
+        debugPrint(
+          'NotificationService: Failed to stop listening: ${e.message}',
+        );
       }
-
-      // Sort by timestamp (newest first)
-      notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      // Limit to 100 notifications to avoid storage issues
-      final limitedNotifications = notifications.take(100).toList();
-
-      // Save back to shared preferences
-      final updatedJsonList =
-          limitedNotifications
-              .map((notification) => json.encode(notification.toMap()))
-              .toList();
-      await prefs.setStringList('notifications', updatedJsonList);
-    } catch (e) {
-      // Log error but don't crash
+      _notificationChannel.setMethodCallHandler(null);
     }
   }
 
-  // Get all stored notifications
-  Future<List<AppNotification>> getNotifications() async {
+  // Handle method calls from the platform side
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    debugPrint('NotificationService: Received method call: ${call.method}');
+    switch (call.method) {
+      case 'onNotificationReceived':
+        try {
+          final Map<dynamic, dynamic> notificationData =
+              Map<dynamic, dynamic>.from(call.arguments);
+          final AppNotification notification = AppNotification.fromMap(
+            Map<String, dynamic>.from(notificationData),
+          );
+
+          debugPrint(
+            'NotificationService: Received notification: ${notification.title} from ${notification.packageName}',
+          );
+
+          // Filter out excluded apps
+          if (!_excludedApps.contains(notification.packageName)) {
+            _notificationsStreamController.add(notification);
+          } else {
+            debugPrint(
+              'NotificationService: Notification from excluded app ${notification.packageName} ignored.',
+            );
+          }
+        } catch (e) {
+          debugPrint('NotificationService: Error handling notification: $e');
+        }
+        break;
+      case 'onNotificationRemoved':
+        try {
+          final Map<dynamic, dynamic> notificationData =
+              Map<dynamic, dynamic>.from(call.arguments);
+          final AppNotification notification = AppNotification.fromMap(
+            Map<String, dynamic>.from(notificationData),
+          );
+          // Assuming the platform sends the full notification data including ID
+          debugPrint(
+            'NotificationService: Received notification removed: ${notification.id} from ${notification.packageName}',
+          );
+          // Create a copy with isRemoved set to true
+          final removedNotification = notification.copyWith(isRemoved: true);
+          _notificationsStreamController.add(removedNotification);
+        } catch (e) {
+          debugPrint('NotificationService: Error handling removal: $e');
+        }
+        break;
+      default:
+        debugPrint(
+          'NotificationService: Ignoring unknown method call: ${call.method}',
+        );
+        // Should return something for unhandled calls
+        return Future.value();
+    }
+  }
+
+  // Request notification listening permission (Platform level)
+  Future<bool> requestPermission() async {
+    debugPrint('NotificationService: Requesting permission...');
+    // Check if already granted first
+    final isGranted = await isPermissionGranted();
+    if (isGranted) {
+      debugPrint('NotificationService: Permission already granted.');
+      return true;
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final notificationsJson = prefs.getStringList('notifications') ?? [];
-      debugPrint(
-        'Loaded ${notificationsJson.length} notifications from storage',
+      final bool? granted = await _notificationChannel.invokeMethod(
+        'requestPermission',
       );
-      final notifications =
-          notificationsJson
-              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
-              .toList();
-
-      // Sort by timestamp (newest first)
-      notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      return notifications;
-    } catch (e) {
-      return [];
+      debugPrint('NotificationService: Permission request result: $granted');
+      return granted ?? false;
+    } on PlatformException catch (e) {
+      debugPrint(
+        'NotificationService: Failed to request permission: ${e.message}',
+      );
+      return false;
     }
   }
 
-  // Clear all stored notifications
-  Future<void> clearAllNotifications() async {
+  // Check if notification listening permission is granted (Platform level)
+  Future<bool> isPermissionGranted() async {
+    try {
+      final bool? granted = await _notificationChannel.invokeMethod(
+        'isPermissionGranted',
+      );
+      return granted ?? false;
+    } on PlatformException catch (e) {
+      debugPrint(
+        'NotificationService: Failed to check permission: ${e.message}',
+      );
+      return false;
+    }
+  }
+
+  // Excluded apps management using SharedPreferences
+  Future<void> _loadExcludedApps() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('notifications');
+      _excludedApps = prefs.getStringList(_excludedAppsKey)?.toSet() ?? {};
     } catch (e) {
-      // Log error but don't crash
+      debugPrint('NotificationService: Error loading excluded apps: $e');
     }
   }
 
-  Future<void> clearAppNotifications(String packageName) async {
+  Future<void> _saveExcludedApps() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final notificationsJson = prefs.getStringList('notifications') ?? [];
-      final notifications =
-          notificationsJson
-              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
-              .where((n) => n.packageName != packageName)
-              .toList();
-
-      final updatedJsonList =
-          notifications
-              .map((notification) => json.encode(notification.toMap()))
-              .toList();
-      await prefs.setStringList('notifications', updatedJsonList);
+      await prefs.setStringList(_excludedAppsKey, _excludedApps.toList());
     } catch (e) {
-      // Log error but don't crash
+      debugPrint('NotificationService: Error saving excluded apps: $e');
     }
   }
 
-  Future<void> removeNotification(String id) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final notificationsJson = prefs.getStringList('notifications') ?? [];
-      final notifications =
-          notificationsJson
-              .map((jsonStr) => AppNotification.fromMap(json.decode(jsonStr)))
-              .where((n) => n.id != id)
-              .toList();
-
-      final updatedJsonList =
-          notifications
-              .map((notification) => json.encode(notification.toMap()))
-              .toList();
-      await prefs.setStringList('notifications', updatedJsonList);
-    } catch (e) {
-      // Log error but don't crash
-    }
-  }
-
-  // Manage excluded apps
   Future<Set<String>> getExcludedApps() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final excludedList = prefs.getStringList('excludedApps') ?? [];
-      return _excludedApps = excludedList.toSet();
-    } catch (e) {
-      return _excludedApps;
-    }
+    await _loadExcludedApps(); // Ensure latest are loaded
+    return _excludedApps;
   }
 
   Future<bool> isAppExcluded(String packageName) async {
-    await getExcludedApps();
+    await _loadExcludedApps(); // Ensure latest are loaded
     return _excludedApps.contains(packageName);
   }
 
   Future<void> excludeApp(String packageName) async {
-    try {
-      await getExcludedApps();
-      _excludedApps.add(packageName);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('excludedApps', _excludedApps.toList());
-    } catch (e) {
-      // Log error but don't crash
+    if (_excludedApps.add(packageName)) {
+      // Add returns true if the element was not already in the set
+      await _saveExcludedApps();
+      debugPrint('NotificationService: Excluded app: $packageName');
     }
   }
 
   Future<void> includeApp(String packageName) async {
-    try {
-      await getExcludedApps();
-      _excludedApps.remove(packageName);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('excludedApps', _excludedApps.toList());
-    } catch (e) {
-      // Log error but don't crash
+    if (_excludedApps.remove(packageName)) {
+      // Remove returns true if the element was in the set
+      await _saveExcludedApps();
+      debugPrint('NotificationService: Included app: $packageName');
     }
   }
 
-  // Send a test notification
+  // Send a test notification (Platform level)
   Future<void> sendTestNotification({
     String title = 'Test Notification',
     String body = 'This is a test notification',
-    String? payload,
   }) async {
-    final androidDetails = AndroidNotificationDetails(
-      'test_channel',
-      'Test Notifications',
-      channelDescription: 'Channel for test notifications',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-
-    final iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    final notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _localNotificationsPlugin.show(
-      DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      title,
-      body,
-      notificationDetails,
-      payload: payload,
-    );
+    try {
+      await _notificationChannel.invokeMethod(
+        'sendTestNotification',
+        <String, dynamic>{'title': title, 'body': body},
+      );
+      debugPrint('NotificationService: Test notification sent.');
+    } on PlatformException catch (e) {
+      debugPrint(
+        'NotificationService: Failed to send test notification: ${e.message}',
+      );
+    }
   }
+
+  // No longer needed as persistence is handled by Provider/Drift
+  // Future<void> _saveNotification(AppNotification notification) async { ... }
+  // Future<List<AppNotification>> getNotifications() async { ... }
+  // Future<void> clearAllStoredNotifications() async { ... }
+  // Future<void> clearAppNotifications(String packageName) async { ... }
+  // Future<void> removeNotification(String id) async { ... }
 
   // Send the remove system tray notification setting to the native side
   Future<void> updateRemoveSystemTraySetting(bool remove) async {
@@ -311,59 +273,10 @@ class NotificationService {
     }
   }
 
-  // Dispose resources
+  // Dispose the stream controller
   void dispose() {
     _notificationsStreamController.close();
-    stopListening();
-  }
-
-  void initNativeNotificationListener() {
-    debugPrint('Setting up native notification listener channel');
-    _notificationChannel.setMethodCallHandler((call) async {
-      debugPrint(
-        'Received method call from native: ${call.method} with arguments: ${call.arguments} (type: ${call.arguments.runtimeType})',
-      );
-
-      if (call.method == 'onNotificationPosted') {
-        try {
-          debugPrint('Captured notification: ${call.arguments}');
-          final args = call.arguments as Map;
-
-          final packageName = args['packageName']?.toString() ?? '';
-          final appName = args['appName']?.toString() ?? packageName;
-          final title = args['title']?.toString() ?? '';
-          final body = args['body']?.toString() ?? '';
-          final iconData = args['iconData']?.toString();
-
-          await getExcludedApps(); // Ensure _excludedApps is up to date
-          if (_excludedApps.contains(packageName)) {
-            debugPrint('Notification from excluded app $packageName ignored.');
-            return;
-          }
-
-          // Cache the icon if available
-          if (iconData != null && iconData.isNotEmpty) {
-            await IconCacheService().cacheIcon(packageName, iconData);
-          }
-
-          final appNotification = AppNotification(
-            id: '${packageName}_${DateTime.now().millisecondsSinceEpoch}',
-            packageName: packageName,
-            appName: appName,
-            title: title,
-            body: body,
-            timestamp: DateTime.now(),
-            iconData: iconData,
-            isRemoved: false,
-          );
-
-          await _saveNotification(appNotification);
-          _notificationsStreamController.add(appNotification);
-        } catch (e, stackTrace) {
-          debugPrint('Error handling onNotificationPosted: $e\n$stackTrace');
-        }
-      }
-    });
+    debugPrint('NotificationService: Disposed.');
   }
 }
 

@@ -217,18 +217,15 @@ class NotificationProvider with ChangeNotifier {
     int page,
     int pageSize,
   ) async {
-    final allNotifications = await _notificationService.getNotifications();
-    final start = page * pageSize;
-    final end = start + pageSize;
-
-    if (start >= allNotifications.length) {
-      return [];
-    }
-
-    return allNotifications.sublist(
-      start,
-      end.clamp(0, allNotifications.length),
+    // final allNotifications = await _notificationService.getNotifications(); // Remove this line
+    // Use the database to get paginated notifications instead
+    final newNotifications = await _db.getPaginatedNotifications(
+      page * pageSize, // Offset
+      pageSize, // Limit
     );
+    return newNotifications
+        .map(_fromDbNotification)
+        .toList(); // Map DB results to AppNotification
   }
 
   // Add method to clear notifications for a specific app
@@ -255,7 +252,6 @@ class NotificationProvider with ChangeNotifier {
 
     // Remove from active notifications
     _notifications.removeWhere((n) => n.packageName == packageName);
-    await _notificationService.clearAppNotifications(packageName);
     notifyListeners();
   }
 
@@ -281,7 +277,6 @@ class NotificationProvider with ChangeNotifier {
     debugPrint(
       'NotificationProvider: Notification $id deleted from active database.',
     );
-    await _notificationService.removeNotification(id);
     notifyListeners();
   }
 
