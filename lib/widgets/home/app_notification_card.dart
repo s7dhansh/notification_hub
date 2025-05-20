@@ -13,16 +13,16 @@ class AppNotificationCard extends StatefulWidget {
   final List<AppNotification> appNotifications;
 
   const AppNotificationCard({
-    Key? key,
+    super.key,
     required this.packageName,
     required this.appNotifications,
-  }) : super(key: key);
+  });
 
   @override
-  _AppNotificationCardState createState() => _AppNotificationCardState();
+  AppNotificationCardState createState() => AppNotificationCardState();
 }
 
-class _AppNotificationCardState extends State<AppNotificationCard> {
+class AppNotificationCardState extends State<AppNotificationCard> {
   AppNotification? _lastDismissed;
 
   void _showExcludeAppDialog(String packageName) {
@@ -167,7 +167,7 @@ class _AppNotificationCardState extends State<AppNotificationCard> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.deepPurple.withOpacity(0.1),
+                          color: Colors.deepPurple.withValues(alpha: .1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -211,19 +211,18 @@ class _AppNotificationCardState extends State<AppNotificationCard> {
                   setState(() {
                     _lastDismissed = notification;
                   });
-                  await Provider.of<NotificationProvider>(
+                  final provider = Provider.of<NotificationProvider>(
                     context,
                     listen: false,
-                  ).removeNotification(notification.id);
+                  );
+                  final messenger = ScaffoldMessenger.of(context);
+                  await provider.removeNotification(notification.id);
 
                   if (!mounted) return;
-                  await Provider.of<NotificationProvider>(
-                    context,
-                    listen: false,
-                  ).addToHistory(notification);
+                  await provider.addToHistory(notification);
 
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(
                       content: const Text('Notification deleted'),
                       action: SnackBarAction(

@@ -7,8 +7,7 @@ import '../../screens/notification_detail_screen.dart';
 class NotificationItemWidget extends StatelessWidget {
   final AppNotification notification;
 
-  const NotificationItemWidget({Key? key, required this.notification})
-    : super(key: key);
+  const NotificationItemWidget({super.key, required this.notification});
 
   @override
   Widget build(BuildContext context) {

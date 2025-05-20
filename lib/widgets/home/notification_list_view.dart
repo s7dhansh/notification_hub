@@ -8,14 +8,13 @@ import 'app_notification_card.dart'; // Will create this next
 class NotificationListView extends StatefulWidget {
   final Map<String, List<AppNotification>> groupedNotifications;
 
-  const NotificationListView({Key? key, required this.groupedNotifications})
-    : super(key: key);
+  const NotificationListView({super.key, required this.groupedNotifications});
 
   @override
-  _NotificationListViewState createState() => _NotificationListViewState();
+  NotificationListViewState createState() => NotificationListViewState();
 }
 
-class _NotificationListViewState extends State<NotificationListView> {
+class NotificationListViewState extends State<NotificationListView> {
   final ScrollController _scrollController = ScrollController();
 
   @override

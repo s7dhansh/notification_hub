@@ -1,69 +1,29 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart'
     show
         AlertDialog,
-        Alignment,
         AppBar,
-        BorderRadius,
-        BoxDecoration,
         BuildContext,
         Builder,
-        Card,
-        CircleAvatar,
-        Colors,
-        Column,
-        Container,
-        CrossAxisAlignment,
-        DismissDirection,
-        Dismissible,
-        EdgeInsets,
-        ElevatedButton,
-        Expanded,
         FloatingActionButton,
-        FontWeight,
-        FutureBuilder,
         Icon,
         IconButton,
         Icons,
-        InkWell,
-        ListTile,
-        ListView,
-        MainAxisAlignment,
-        MainAxisSize,
         MaterialPageRoute,
-        MemoryImage,
         Navigator,
-        Padding,
-        RefreshIndicator,
-        RoundedRectangleBorder,
-        Row,
         Scaffold,
         ScaffoldMessenger,
-        ScrollController,
-        SizedBox,
         SnackBar,
-        SnackBarAction,
         State,
         StatefulWidget,
         Text,
         TextButton,
-        TextOverflow,
-        TextStyle,
-        Theme,
-        ValueKey,
         Widget,
         debugPrint,
         showDialog;
-import 'package:notihub/services/icon_cache_service.dart';
 import 'package:provider/provider.dart' show Consumer, Provider;
-import 'package:intl/intl.dart' show DateFormat;
-import 'dart:convert' show base64Decode;
 
 import '../providers/notification_provider.dart' show NotificationProvider;
-import '../models/notification_model.dart' show AppNotification;
 import '../widgets/empty_state.dart' show EmptyState;
-import 'notification_detail_screen.dart' show NotificationDetailScreen;
 import 'notification_history_screen.dart' show NotificationHistoryScreen;
 
 // Import the new widgets
@@ -85,8 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // final ScrollController _scrollController = ScrollController();
   // bool _hasMoreData = true;
   // bool _isLoadingMore = false;
-  AppNotification? _lastDismissed;
-
   @override
   void initState() {
     super.initState();
@@ -218,48 +176,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // Widget _buildNotificationCard({...}) {...}
   // Widget _buildNotificationItem(AppNotification notification) {...}
 
-  // Remove extracted dialog methods
-  void _showExcludeAppDialog(String packageName) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Exclude App'),
-            content: const Text(
-              'Do you want to exclude this app from notification capture? Notifications from this app will no longer be collected.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  final provider = Provider.of<NotificationProvider>(
-                    context,
-                    listen: false,
-                  );
-                  provider.excludeApp(packageName);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('App will no longer be tracked'),
-                      action: SnackBarAction(
-                        label: 'UNDO',
-                        onPressed: () {
-                          provider.includeApp(packageName);
-                        },
-                      ),
-                    ),
-                  );
-                },
-                child: const Text('Exclude'),
-              ),
-            ],
-          ),
-    );
-  }
-
   void _confirmClearNotifications(BuildContext context) {
     showDialog(
       context: context,
@@ -280,35 +196,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     listen: false,
                   ).clearAllNotifications();
-                  Navigator.pop(context);
-                },
-                child: const Text('Clear'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _showClearAppNotificationsDialog(String packageName) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Clear Notifications'),
-            content: const Text(
-              'Are you sure you want to clear all notifications for this app?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Provider.of<NotificationProvider>(
-                    context,
-                    listen: false,
-                  ).clearAppNotifications(packageName);
                   Navigator.pop(context);
                 },
                 child: const Text('Clear'),
