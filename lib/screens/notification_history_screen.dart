@@ -10,12 +10,9 @@ import 'package:flutter/material.dart'
         FontWeight,
         Icon,
         Icons,
-        InkWell,
         ListTile,
         ListView,
-        MaterialPageRoute,
         MemoryImage,
-        Navigator,
         NeverScrollableScrollPhysics,
         Opacity,
         Padding,
@@ -23,16 +20,13 @@ import 'package:flutter/material.dart'
         State,
         StatefulWidget,
         Text,
-        TextOverflow,
         TextStyle,
         Widget,
-        Column,
-        CrossAxisAlignment;
+        Column;
 import 'package:provider/provider.dart' show Consumer;
 import 'dart:convert' show base64Decode;
 import '../providers/notification_provider.dart' show NotificationProvider;
 import '../models/notification_model.dart' show AppNotification;
-import 'notification_detail_screen.dart' show NotificationDetailScreen;
 import '../widgets/home/notification_item_widget.dart';
 
 class NotificationHistoryScreen extends StatefulWidget {
