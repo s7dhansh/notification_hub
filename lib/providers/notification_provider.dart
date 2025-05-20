@@ -26,6 +26,12 @@ class NotificationProvider with ChangeNotifier {
   bool get isListening => _notificationService.isListening;
   bool get isInitialized => _isInitialized;
 
+  bool _isLoadingMore = false;
+  bool _hasMoreData = true; // Assuming initially there's more data to load
+
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMoreData => _hasMoreData;
+
   // Constructor
   NotificationProvider() {
     _initialize();
@@ -69,7 +75,7 @@ class NotificationProvider with ChangeNotifier {
       notification,
     ) async {
       debugPrint(
-        'Provider received notification: \\${notification.title} from \\${notification.packageName}',
+        'Provider received notification: ${notification.title} from ${notification.packageName}',
       );
       if (notification.iconData != null) {
         await _iconCacheService.cacheIcon(
@@ -94,7 +100,7 @@ class NotificationProvider with ChangeNotifier {
         }
       }
       debugPrint(
-        'Provider notifications list now has \\${_notifications.length} items',
+        'Provider notifications list now has ${_notifications.length} items',
       );
       notifyListeners();
     });
@@ -243,23 +249,40 @@ class NotificationProvider with ChangeNotifier {
     return groupedNotifications;
   }
 
+  void setLoadingMore(bool value) {
+    _isLoadingMore = value;
+    notifyListeners();
+  }
+
+  void setHasMoreData(bool value) {
+    _hasMoreData = value;
+    notifyListeners();
+  }
+
   // Add load more notifications method
   Future<bool> loadMoreNotifications() async {
+    if (_isLoadingMore || !_hasMoreData) return false;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
     final currentLength = _notifications.length;
     final pageSize = 20;
 
-    final moreNotifications = await getPaginatedNotifications(
-      (currentLength ~/ pageSize),
+    final newNotifications = await _db.getPaginatedNotifications(
+      currentLength, // Start from the current number of notifications
       pageSize,
     );
 
-    if (moreNotifications.isEmpty) {
-      return false;
-    }
+    _notifications.addAll(newNotifications.map(_fromDbNotification));
 
-    _notifications.addAll(moreNotifications);
+    _isLoadingMore = false;
+    _hasMoreData =
+        newNotifications.length ==
+        pageSize; // Assume more data if we got a full page
     notifyListeners();
-    return true;
+
+    return _hasMoreData;
   }
 
   // Send a test notification

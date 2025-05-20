@@ -62,6 +62,17 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteHistoryOlderThan(DateTime cutoff) =>
       (delete(notificationHistory)
         ..where((tbl) => tbl.timestamp.isSmallerThan(Constant(cutoff)))).go();
+
+  // Add pagination support for notifications
+  Future<List<Notification>> getPaginatedNotifications(int offset, int limit) {
+    return (select(notifications)
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc),
+          ])
+          ..limit(limit, offset: offset))
+        .get();
+  }
 }
 
 LazyDatabase _openConnection() {
