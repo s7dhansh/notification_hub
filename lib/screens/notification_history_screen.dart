@@ -33,6 +33,7 @@ import 'dart:convert' show base64Decode;
 import '../providers/notification_provider.dart' show NotificationProvider;
 import '../models/notification_model.dart' show AppNotification;
 import 'notification_detail_screen.dart' show NotificationDetailScreen;
+import '../widgets/home/notification_item_widget.dart';
 
 class NotificationHistoryScreen extends StatefulWidget {
   const NotificationHistoryScreen({super.key});
@@ -111,43 +112,10 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                           itemCount: appNotifications.length,
                           itemBuilder: (context, idx) {
                             final notification = appNotifications[idx];
-                            return InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => NotificationDetailScreen(
-                                          notification: notification,
-                                        ),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      notification.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    if (notification.body.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text(
-                                          notification.body,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                  ],
-                                ),
+                            return Opacity(
+                              opacity: 0.5,
+                              child: NotificationItemWidget(
+                                notification: notification,
                               ),
                             );
                           },

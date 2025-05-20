@@ -6,7 +6,7 @@ import 'dart:convert';
 import '../../models/notification_model.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/icon_cache_service.dart';
-import 'dismissible_notification_item.dart';
+import 'notification_item.dart';
 
 class AppNotificationCard extends StatefulWidget {
   final String packageName;
@@ -195,12 +195,12 @@ class AppNotificationCardState extends State<AppNotificationCard> {
             ),
             ...widget.appNotifications.map(
               (notification) => DismissibleNotificationItem(
-                    notification: notification,
-                    onDismissed: (notificationId) {
-                      // The actual dismissal is handled by DismissibleNotificationItem
-                      // This callback is just for notifying the parent if needed
-                    },
-                  ),
+                notification: notification,
+                onDismissed: (notificationId) {
+                  // The actual dismissal is handled by DismissibleNotificationItem
+                  // This callback is just for notifying the parent if needed
+                },
+              ),
             ),
           ],
         ),
