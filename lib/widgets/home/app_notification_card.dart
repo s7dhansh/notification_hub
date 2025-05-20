@@ -6,7 +6,7 @@ import 'dart:convert';
 import '../../models/notification_model.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/icon_cache_service.dart';
-import 'notification_item_widget.dart';
+import 'dismissible_notification_item.dart';
 
 class AppNotificationCard extends StatefulWidget {
   final String packageName;
@@ -23,8 +23,6 @@ class AppNotificationCard extends StatefulWidget {
 }
 
 class AppNotificationCardState extends State<AppNotificationCard> {
-  AppNotification? _lastDismissed;
-
   void _showExcludeAppDialog(String packageName) {
     showDialog(
       context: context,
@@ -196,58 +194,13 @@ class AppNotificationCardState extends State<AppNotificationCard> {
               },
             ),
             ...widget.appNotifications.map(
-              (notification) => Dismissible(
-                key: ValueKey(notification.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  color: Colors.red,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20.0),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                onDismissed: (direction) async {
-                  if (!mounted) return;
-
-                  setState(() {
-                    _lastDismissed = notification;
-                  });
-                  final provider = Provider.of<NotificationProvider>(
-                    context,
-                    listen: false,
-                  );
-                  final messenger = ScaffoldMessenger.of(context);
-                  await provider.removeNotification(notification.id);
-
-                  if (!mounted) return;
-                  await provider.addToHistory(notification);
-
-                  if (!mounted) return;
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: const Text('Notification deleted'),
-                      action: SnackBarAction(
-                        label: 'UNDO',
-                        onPressed: () async {
-                          if (_lastDismissed != null) {
-                            await Provider.of<NotificationProvider>(
-                              context,
-                              listen: false,
-                            ).restoreNotification(_lastDismissed!);
-                            if (context.mounted) {
-                              setState(() {
-                                _lastDismissed = null;
-                              });
-                            }
-                          }
-                        },
-                      ),
-                    ),
-                  );
-                },
-                child: NotificationItemWidget(
-                  notification: notification,
-                ), // Will create this next
-              ),
+              (notification) => DismissibleNotificationItem(
+                    notification: notification,
+                    onDismissed: (notificationId) {
+                      // The actual dismissal is handled by DismissibleNotificationItem
+                      // This callback is just for notifying the parent if needed
+                    },
+                  ),
             ),
           ],
         ),
