@@ -22,16 +22,28 @@ class MainActivity : FlutterActivity() {
         NotiHubNotificationService.channel = channel
 
         channel.setMethodCallHandler { call, result ->
-            if (call.method == "removeNotification") {
-                val key = call.argument<String>("key")
-                if (key != null) {
-                    NotiHubNotificationService.removeNotificationByKey(key)
-                    result.success(null)
-                } else {
-                    result.error("INVALID_KEY", "Key is null", null)
+            when (call.method) {
+                "removeNotification" -> {
+                    val key = call.argument<String>("key")
+                    if (key != null) {
+                        NotiHubNotificationService.removeNotificationByKey(key)
+                        result.success(null)
+                    } else {
+                        result.error("INVALID_KEY", "Key is null", null)
+                    }
                 }
-            } else {
-                result.notImplemented()
+                "updateRemoveSystemTraySetting" -> {
+                    val remove = call.argument<Boolean>("remove")
+                    if (remove != null) {
+                        NotiHubNotificationService.shouldRemoveSystemTrayNotification = remove
+                        result.success(null)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "Argument 'remove' is null", null)
+                    }
+                }
+                else -> {
+                    result.notImplemented()
+                }
             }
         }
     }

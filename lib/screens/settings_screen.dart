@@ -187,7 +187,9 @@ class SettingsScreenState extends State<SettingsScreen> {
                     _removeSystemTrayNotification = value;
                   });
                   await _saveSetting(value);
-                  // TODO: Inform native side about the change
+                  await NotificationService().updateRemoveSystemTraySetting(
+                    value,
+                  );
                 },
               ),
               const Divider(),

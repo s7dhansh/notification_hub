@@ -295,6 +295,22 @@ class NotificationService {
     );
   }
 
+  // Send the remove system tray notification setting to the native side
+  Future<void> updateRemoveSystemTraySetting(bool remove) async {
+    try {
+      await _notificationChannel.invokeMethod('updateRemoveSystemTraySetting', {
+        'remove': remove,
+      });
+      debugPrint(
+        'Sent removeSystemTrayNotification setting to native: $remove',
+      );
+    } on PlatformException catch (e) {
+      debugPrint(
+        'Failed to send removeSystemTrayNotification setting: ${e.message}',
+      );
+    }
+  }
+
   // Dispose resources
   void dispose() {
     _notificationsStreamController.close();
@@ -307,29 +323,29 @@ class NotificationService {
       debugPrint(
         'Received method call from native: ${call.method} with arguments: ${call.arguments} (type: ${call.arguments.runtimeType})',
       );
-      
+
       if (call.method == 'onNotificationPosted') {
         try {
           debugPrint('Captured notification: ${call.arguments}');
           final args = call.arguments as Map;
-          
+
           final packageName = args['packageName']?.toString() ?? '';
           final appName = args['appName']?.toString() ?? packageName;
           final title = args['title']?.toString() ?? '';
           final body = args['body']?.toString() ?? '';
           final iconData = args['iconData']?.toString();
-          
+
           await getExcludedApps(); // Ensure _excludedApps is up to date
           if (_excludedApps.contains(packageName)) {
             debugPrint('Notification from excluded app $packageName ignored.');
             return;
           }
-          
+
           // Cache the icon if available
           if (iconData != null && iconData.isNotEmpty) {
             await IconCacheService().cacheIcon(packageName, iconData);
           }
-          
+
           final appNotification = AppNotification(
             id: '${packageName}_${DateTime.now().millisecondsSinceEpoch}',
             packageName: packageName,
@@ -340,17 +356,9 @@ class NotificationService {
             iconData: iconData,
             isRemoved: false,
           );
-          
+
           await _saveNotification(appNotification);
           _notificationsStreamController.add(appNotification);
-          
-          // Remove the notification from the system tray if needed
-          final key = args['key'];
-          if (key != null) {
-            await _notificationChannel.invokeMethod('removeNotification', {
-              'key': key,
-            });
-          }
         } catch (e, stackTrace) {
           debugPrint('Error handling onNotificationPosted: $e\n$stackTrace');
         }

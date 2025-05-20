@@ -18,6 +18,8 @@ class NotiHubNotificationService : NotificationListenerService() {
     companion object {
         var channel: MethodChannel? = null
         var instance: NotiHubNotificationService? = null
+        var shouldRemoveSystemTrayNotification: Boolean = true // Default to true (remove)
+
         fun removeNotificationByKey(key: String) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 instance?.cancelNotification(key)
@@ -149,11 +151,10 @@ class NotiHubNotificationService : NotificationListenerService() {
         
         channel?.invokeMethod("onNotificationPosted", notificationData)
         
-        // Remove the notification from the system tray
-        // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        //     cancelNotification(sbn.key)
-        // } else {
-        //     cancelNotification(sbn.packageName, sbn.tag, sbn.id)
-        // }
+        // Remove the notification from the system tray if needed and the setting is enabled
+        val key = sbn.key
+        if (shouldRemoveSystemTrayNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+             cancelNotification(key)
+         }
     }
 } 

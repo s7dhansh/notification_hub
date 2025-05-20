@@ -51,7 +51,40 @@ class NotificationListViewState extends State<NotificationListView> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the package names (apps)
     final apps = widget.groupedNotifications.keys.toList();
+
+    // Define a very early DateTime as an initial value for fold
+    final DateTime veryEarlyDateTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+    // Sort the apps based on the latest timestamp of notifications within each app's group.
+    // This ensures apps with newer notifications appear higher in the list.
+    apps.sort((a, b) {
+      final latestTimestampA = widget.groupedNotifications[a]
+          ?.map((n) => n.timestamp)
+          .fold<DateTime>(
+            // Fold over DateTime objects
+            veryEarlyDateTime, // Start with a very early date
+            (prev, current) =>
+                current.isAfter(prev) ? current : prev, // Find the latest date
+          );
+
+      final latestTimestampB = widget.groupedNotifications[b]
+          ?.map((n) => n.timestamp)
+          .fold<DateTime>(
+            // Fold over DateTime objects
+            veryEarlyDateTime, // Start with a very early date
+            (prev, current) =>
+                current.isAfter(prev) ? current : prev, // Find the latest date
+          );
+
+      // Sort in descending order (latest timestamp first) using DateTime's compareTo
+      // If fold result is null (shouldn't happen with veryEarlyDateTime), treat as very early
+      return (latestTimestampB ?? veryEarlyDateTime).compareTo(
+        latestTimestampA ?? veryEarlyDateTime,
+      );
+    });
+
     final provider = Provider.of<NotificationProvider>(context);
 
     return RefreshIndicator(
@@ -64,8 +97,16 @@ class NotificationListViewState extends State<NotificationListView> {
               itemCount: apps.length,
               itemBuilder: (context, index) {
                 final packageName = apps[index];
-                final appNotifications =
+                List<AppNotification> appNotifications =
                     widget.groupedNotifications[packageName]!;
+
+                // Sort the notifications within each app group by timestamp in descending order.
+                // This ensures the latest notification for a specific app is at the top of its card.
+                // This sort method works correctly with DateTime objects
+                appNotifications.sort(
+                  (a, b) => b.timestamp.compareTo(a.timestamp),
+                );
+
                 if (appNotifications.isEmpty) return const SizedBox.shrink();
 
                 return AppNotificationCard(
