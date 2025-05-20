@@ -42,8 +42,8 @@
             android:value="2" />
             
         <service
-            android:name="in.appkari.notihub.NotificationListenerService"
-            android:label="Notification Listener"
+            android:name="in.appkari.notihub.NotiHubNotificationService"
+            android:label="Notification Hub Service"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
             <intent-filter>

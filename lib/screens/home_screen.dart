@@ -448,27 +448,6 @@ class _HomeScreenState extends State<HomeScreen> {
           '\\${dateFormat.format(notification.timestamp)}, \\${timeFormat.format(notification.timestamp)}';
     }
 
-    Widget leadingWidget;
-    if (notification.iconData != null && notification.iconData!.isNotEmpty) {
-      try {
-        leadingWidget = CircleAvatar(
-          backgroundImage: MemoryImage(base64Decode(notification.iconData!)),
-          backgroundColor: Colors.white,
-          radius: 18,
-        );
-      } catch (e) {
-        leadingWidget = const CircleAvatar(
-          radius: 18,
-          child: Icon(Icons.notifications),
-        );
-      }
-    } else {
-      leadingWidget = const CircleAvatar(
-        radius: 18,
-        child: Icon(Icons.notifications),
-      );
-    }
-
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -488,8 +467,6 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                leadingWidget,
-                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

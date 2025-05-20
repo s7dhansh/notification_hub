@@ -14,10 +14,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 
-class NotificationListenerService : NotificationListenerService() {
+class NotiHubNotificationService : NotificationListenerService() {
     companion object {
         var channel: MethodChannel? = null
-        var instance: NotificationListenerService? = null
+        var instance: NotiHubNotificationService? = null
         fun removeNotificationByKey(key: String) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 instance?.cancelNotification(key)
@@ -27,10 +27,12 @@ class NotificationListenerService : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("NotiHubService", "Service created")
         instance = this
     }
 
     override fun onDestroy() {
+        Log.d("NotiHubService", "Service destroyed")
         super.onDestroy()
         if (instance == this) {
             instance = null
@@ -56,7 +58,10 @@ class NotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        Log.d("NotiHubService", "onNotificationPosted called for package: ${sbn.packageName}, id: ${sbn.id}, tag: ${sbn.tag}, key: ${sbn.key}")
+        Log.d("NotiHubService", "=== NOTIFICATION RECEIVED ===")
+        Log.d("NotiHubService", "Package: ${sbn.packageName}")
+        Log.d("NotiHubService", "ID: ${sbn.id}, Tag: ${sbn.tag}, Key: ${sbn.key}")
+        Log.d("NotiHubService", "Time: ${System.currentTimeMillis()}")
         if (channel == null) {
             Log.d("NotiHubService", "MethodChannel is null, cannot send to Flutter")
         } else {

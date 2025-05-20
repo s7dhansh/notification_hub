@@ -6,12 +6,17 @@ import 'package:flutter/foundation.dart'
 import '../models/notification_model.dart' show AppNotification;
 import '../services/notification_service.dart' show NotificationService;
 import '../services/icon_cache_service.dart' show IconCacheService;
+import '../database/app_database.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:drift/drift.dart' show Value;
 
 class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   final _iconCacheService = IconCacheService();
   List<AppNotification> _notifications = [];
-  final List<AppNotification> _notificationHistory = [];
+  List<AppNotification> _notificationHistory = [];
+  final AppDatabase _db = AppDatabase();
+  int _historyDays = 7;
   bool _isInitialized = false;
   StreamSubscription<AppNotification>? _subscription;
 
@@ -28,8 +33,11 @@ class NotificationProvider with ChangeNotifier {
 
   // Initialize the provider
   Future<void> _initialize() async {
+    final prefs = await SharedPreferences.getInstance();
+    _historyDays = prefs.getInt('historyDays') ?? 7;
     await _notificationService.initialize();
     await loadNotifications();
+    await loadHistory();
     _startListeningToNotifications();
     _isInitialized = true;
     notifyListeners();
@@ -37,7 +45,20 @@ class NotificationProvider with ChangeNotifier {
 
   // Make method public
   Future<void> loadNotifications() async {
-    _notifications = await _notificationService.getNotifications();
+    final dbNotifs = await _db.getAllNotifications();
+    _notifications = dbNotifs.map(_fromDbNotification).toList();
+    notifyListeners();
+  }
+
+  Future<void> loadHistory() async {
+    final cutoff = DateTime.now().subtract(Duration(days: _historyDays));
+    // Remove old history
+    await _db.deleteHistoryOlderThan(cutoff);
+    _notificationHistory =
+        (await _db.getAllHistory())
+            .where((h) => h.timestamp.isAfter(cutoff))
+            .map(_fromDbNotificationHistory)
+            .toList();
     notifyListeners();
   }
 
@@ -252,19 +273,63 @@ class NotificationProvider with ChangeNotifier {
   // Add to notification history
   Future<void> addToHistory(AppNotification notification) async {
     if (!_notificationHistory.any((n) => n.id == notification.id)) {
-      _notificationHistory.insert(0, notification);
-      // TODO: Persist history and enforce max days
-      notifyListeners();
+      await _db.insertHistory(
+        NotificationHistoryCompanion(
+          id: Value(notification.id),
+          packageName: Value(notification.packageName),
+          appName: Value(notification.appName),
+          title: Value(notification.title),
+          body: Value(notification.body),
+          timestamp: Value(notification.timestamp),
+          iconData: Value(notification.iconData),
+          isRemoved: Value(notification.isRemoved),
+        ),
+      );
+      await loadHistory();
     }
   }
 
   // Restore a notification from history (undo)
   Future<void> restoreNotification(AppNotification notification) async {
-    _notifications.insert(0, notification);
-    _notificationHistory.removeWhere((n) => n.id == notification.id);
-    // TODO: Persist history and notifications
-    notifyListeners();
+    await _db.insertNotification(
+      NotificationsCompanion(
+        id: Value(notification.id),
+        packageName: Value(notification.packageName),
+        appName: Value(notification.appName),
+        title: Value(notification.title),
+        body: Value(notification.body),
+        timestamp: Value(notification.timestamp),
+        iconData: Value(notification.iconData),
+        isRemoved: Value(notification.isRemoved),
+      ),
+    );
+    await _db.deleteHistory(notification.id);
+    await loadNotifications();
+    await loadHistory();
   }
+
+  // Helper to convert DB row to AppNotification
+  AppNotification _fromDbNotification(Notification n) => AppNotification(
+    id: n.id,
+    packageName: n.packageName,
+    appName: n.appName,
+    title: n.title,
+    body: n.body,
+    timestamp: n.timestamp,
+    iconData: n.iconData,
+    isRemoved: n.isRemoved,
+  );
+  AppNotification _fromDbNotificationHistory(NotificationHistoryData n) =>
+      AppNotification(
+        id: n.id,
+        packageName: n.packageName,
+        appName: n.appName,
+        title: n.title,
+        body: n.body,
+        timestamp: n.timestamp,
+        iconData: n.iconData,
+        isRemoved: n.isRemoved,
+      );
 
   @override
   void dispose() {
