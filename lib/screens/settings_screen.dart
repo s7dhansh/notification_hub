@@ -14,6 +14,7 @@ import 'package:flutter/material.dart'
         FutureBuilder,
         Icon,
         Icons,
+        State,
         ListTile,
         ListView,
         Navigator,
@@ -22,7 +23,7 @@ import 'package:flutter/material.dart'
         SingleChildScrollView,
         SizedBox,
         SnackBar,
-        StatelessWidget,
+        StatefulWidget,
         Switch,
         Text,
         TextButton,
@@ -31,7 +32,8 @@ import 'package:flutter/material.dart'
         showAboutDialog,
         showDialog,
         DropdownButton,
-        DropdownMenuItem;
+        DropdownMenuItem,
+        SwitchListTile;
 import 'package:provider/provider.dart' show Consumer;
 import 'package:notification_listener_service/notification_listener_service.dart'
     show NotificationListenerService;
@@ -40,8 +42,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/notification_provider.dart' show NotificationProvider;
 import '../services/notification_service.dart' show NotificationService;
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  SettingsScreenState createState() => SettingsScreenState();
+}
+
+class SettingsScreenState extends State<SettingsScreen> {
+  bool _removeSystemTrayNotification = true; // Default to no removal
+  static const _removeSystemTrayKey = 'removeSystemTrayNotification';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSetting();
+  }
+
+  Future<void> _loadSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _removeSystemTrayNotification =
+          prefs.getBool(_removeSystemTrayKey) ?? true; // Default to false
+    });
+  }
+
+  Future<void> _saveSetting(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_removeSystemTrayKey, value);
+    // We will inform the native side later
+  }
 
   Future<void> _saveHistoryDays(int days) async {
     final prefs = await SharedPreferences.getInstance();
@@ -142,6 +172,23 @@ class SettingsScreen extends StatelessWidget {
                     }
                   },
                 ),
+              ),
+              const Divider(),
+
+              // System Tray Removal Toggle
+              SwitchListTile(
+                title: const Text('Remove Notifications from System Tray'),
+                subtitle: const Text(
+                  'Disable to keep notifications in the system tray after they are captured.',
+                ),
+                value: _removeSystemTrayNotification,
+                onChanged: (value) async {
+                  setState(() {
+                    _removeSystemTrayNotification = value;
+                  });
+                  await _saveSetting(value);
+                  // TODO: Inform native side about the change
+                },
               ),
               const Divider(),
 
@@ -289,27 +336,27 @@ class SettingsScreen extends StatelessWidget {
               FutureBuilder<int>(
                 future: _loadHistoryDays(),
                 builder: (context, snapshot) {
-                  final value = snapshot.data ?? 7;
+                  int currentDays =
+                      snapshot.data ?? 7; // Default to 7 if no data
                   return ListTile(
-                    title: const Text('Notification History Duration'),
-                    subtitle: const Text(
-                      'How many days of notifications to show',
-                    ),
+                    // Wrap in ListTile for consistent padding/style
+                    title: const Text('Keep History For'),
                     trailing: DropdownButton<int>(
-                      value: value,
-                      items:
-                          [1, 3, 7, 14, 30]
-                              .map(
-                                (d) => DropdownMenuItem(
-                                  value: d,
-                                  child: Text('$d days'),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (val) async {
-                        if (val != null) {
-                          await _saveHistoryDays(val);
-                          // HomeScreen will reload on next build
+                      value: currentDays,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('1 Day')),
+                        DropdownMenuItem(value: 3, child: Text('3 Days')),
+                        DropdownMenuItem(value: 7, child: Text('7 Days')),
+                        DropdownMenuItem(value: 14, child: Text('14 Days')),
+                        DropdownMenuItem(value: 30, child: Text('30 Days')),
+                        DropdownMenuItem(value: 0, child: Text('Forever')),
+                      ],
+                      onChanged: (int? newValue) async {
+                        if (newValue != null) {
+                          await _saveHistoryDays(newValue);
+                          // Optionally notify provider to reload history with new setting
+                          provider
+                              .loadHistory(); // Assuming loadHistory handles the setting
                         }
                       },
                     ),
