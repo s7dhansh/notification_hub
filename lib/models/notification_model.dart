@@ -23,7 +23,7 @@ class AppNotification {
 
   factory AppNotification.fromMap(Map<String, dynamic> map) {
     return AppNotification(
-      id: map['id'] ?? '',
+      id: map['id']?.toString() ?? '',
       packageName: map['packageName'] ?? '',
       appName: map['appName'] ?? 'Unknown App',
       title: map['title'] ?? '',

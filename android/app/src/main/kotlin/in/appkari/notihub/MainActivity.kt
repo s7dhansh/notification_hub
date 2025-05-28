@@ -11,6 +11,11 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.content.Intent
 import android.net.Uri
+import android.app.Notification
+import android.app.NotificationChannel
+import android.content.pm.PackageManager
+import android.util.Log
+import java.util.Random
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "notification_capture"
@@ -33,6 +38,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "updateRemoveSystemTraySetting" -> {
+                    // Allows Flutter to control whether notifications are removed from the system tray
                     val remove = call.argument<Boolean>("remove")
                     if (remove != null) {
                         NotiHubNotificationService.shouldRemoveSystemTrayNotification = remove
@@ -40,6 +46,35 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("INVALID_ARGUMENT", "Argument 'remove' is null", null)
                     }
+                }
+                "requestPermission" -> {
+                    // Open notification listener settings if not enabled
+                    if (!isNotificationServiceEnabled()) {
+                        val intent = Intent(NOTIFICATION_LISTENER_SETTINGS)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(intent)
+                        // Can't know if granted immediately, return false for now
+                        result.success(false)
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "isPermissionGranted" -> {
+                    result.success(isNotificationServiceEnabled())
+                }
+                "startListening" -> {
+                    NotiHubNotificationService.isListening = true
+                    result.success(true)
+                }
+                "stopListening" -> {
+                    NotiHubNotificationService.isListening = false
+                    result.success(true)
+                }
+                "sendTestNotification" -> {
+                    val title = call.argument<String>("title") ?: "Test Notification"
+                    val body = call.argument<String>("body") ?: "This is a test notification"
+                    sendTestNotification(title, body)
+                    result.success(true)
                 }
                 else -> {
                     result.notImplemented()
@@ -66,6 +101,12 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         // Request notification listener permission
         requestNotificationListenerPermission()
+        // Request POST_NOTIFICATIONS permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
+            }
+        }
         // Prompt user to exclude from battery optimizations"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val packageName = packageName
@@ -76,5 +117,32 @@ class MainActivity : FlutterActivity() {
                 startActivity(intent)
             }
         }
+    }
+
+    private fun sendTestNotification(title: String, body: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            Log.d("MainActivity", "POST_NOTIFICATIONS granted: $granted")
+        }
+        Log.d("MainActivity", "Attempting to send test notification")
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "test_channel"
+        val channelName = "Test Channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
+            notificationManager.createNotificationChannel(channel)
+        }
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, channelId)
+        } else {
+            Notification.Builder(this)
+        }
+        builder.setContentTitle(title)
+            .setContentText(body)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setAutoCancel(true)
+        val notificationId = Random().nextInt(100000) // Use a random ID
+        notificationManager.notify(notificationId, builder.build())
+        Log.d("MainActivity", "Notification sent with ID: $notificationId")
     }
 }

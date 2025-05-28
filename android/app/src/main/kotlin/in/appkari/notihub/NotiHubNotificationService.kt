@@ -18,7 +18,8 @@ class NotiHubNotificationService : NotificationListenerService() {
     companion object {
         var channel: MethodChannel? = null
         var instance: NotiHubNotificationService? = null
-        var shouldRemoveSystemTrayNotification: Boolean = true // Default to true (remove)
+        var shouldRemoveSystemTrayNotification: Boolean = false // Default to false (keep)
+        var isListening: Boolean = false // Controls forwarding to Flutter
 
         fun removeNotificationByKey(key: String) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -68,6 +69,10 @@ class NotiHubNotificationService : NotificationListenerService() {
             Log.d("NotiHubService", "MethodChannel is null, cannot send to Flutter")
         } else {
             Log.d("NotiHubService", "MethodChannel is set, sending to Flutter")
+        }
+        if (!isListening) {
+            Log.d("NotiHubService", "isListening is false, not forwarding notification to Flutter")
+            return
         }
         // Get app name
         val packageManager = applicationContext.packageManager
@@ -149,8 +154,9 @@ class NotiHubNotificationService : NotificationListenerService() {
             }
         }
         
-        channel?.invokeMethod("onNotificationPosted", notificationData)
+        channel?.invokeMethod("onNotificationReceived", notificationData)
         
+        Log.d("NotiHubService", "shouldRemoveSystemTrayNotification: $shouldRemoveSystemTrayNotification")
         // Remove the notification from the system tray if needed and the setting is enabled
         val key = sbn.key
         if (shouldRemoveSystemTrayNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {

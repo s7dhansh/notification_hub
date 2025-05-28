@@ -179,9 +179,9 @@ class NotificationService {
         'isPermissionGranted',
       );
       return granted ?? false;
-    } on PlatformException catch (e) {
+    } catch (e) {
       debugPrint(
-        'NotificationService: Failed to check permission: ${e.message}',
+        'NotificationService: Failed to check permission: ${e.toString()}',
       );
       return false;
     }

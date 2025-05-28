@@ -354,6 +354,7 @@ class NotificationProvider with ChangeNotifier {
     String title = 'Test Notification',
     String body = 'This is a test notification',
   }) async {
+    await _notificationService.startListening();
     await _notificationService.sendTestNotification(title: title, body: body);
   }
 
