@@ -1,9 +1,28 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart'
+    show
+        Colors,
+        EdgeInsets,
+        ScaffoldMessenger,
+        Icon,
+        Icons,
+        SnackBar,
+        SnackBarAction,
+        Text,
+        Widget,
+        BuildContext,
+        StatefulWidget,
+        State,
+        ValueKey,
+        Dismissible,
+        Container,
+        Alignment,
+        SizedBox,
+        DismissDirection;
+import 'package:provider/provider.dart' show Provider;
 
-import '../../models/notification_model.dart';
-import '../../providers/notification_provider.dart';
-import 'notification_item_widget.dart';
+import '../../models/notification_model.dart' show AppNotification;
+import '../../providers/notification_provider.dart' show NotificationProvider;
+import 'notification_item_widget.dart' show NotificationItemWidget;
 
 class DismissibleNotificationItem extends StatefulWidget {
   final AppNotification notification;
@@ -65,9 +84,6 @@ class _DismissibleNotificationItemState
     await provider.removeNotification(widget.notification.id);
 
     if (mounted) {
-      // Add to history
-      await provider.addToHistory(widget.notification);
-
       // Show undo snackbar
       messenger.clearSnackBars(); // Clear any existing snackbars
       messenger.showSnackBar(

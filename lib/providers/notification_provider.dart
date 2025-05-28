@@ -6,10 +6,16 @@ import 'package:flutter/foundation.dart'
 import '../models/notification_model.dart' show AppNotification;
 import '../services/notification_service.dart' show NotificationService;
 import '../services/icon_cache_service.dart' show IconCacheService;
-import '../database/app_database.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../database/app_database.dart'
+    show
+        AppDatabase,
+        Notification,
+        NotificationHistoryData,
+        NotificationsCompanion,
+        NotificationHistoryCompanion;
+import 'package:shared_preferences/shared_preferences.dart'
+    show SharedPreferences;
 import 'package:drift/drift.dart' show Value;
-import 'package:collection/collection.dart';
 
 class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
@@ -91,7 +97,7 @@ class NotificationProvider with ChangeNotifier {
       notification,
     ) async {
       debugPrint(
-        'Provider received notification: ${notification.title} from ${notification.packageName}',
+        'Provider received notification: \\${notification.title} from \\${notification.packageName}',
       );
       if (notification.iconData != null) {
         await _iconCacheService.cacheIcon(
@@ -101,46 +107,34 @@ class NotificationProvider with ChangeNotifier {
       }
 
       if (notification.isRemoved) {
-        // If notification is removed, update existing notifications
-        _notifications =
-            _notifications.map((n) {
-              if (n.packageName == notification.packageName && !n.isRemoved) {
-                return n.copyWith(isRemoved: true);
-              }
-              return n;
-            }).toList();
-        // Also move the removed notification to history in the database
-        final removedNotif = _notifications.firstWhereOrNull(
-          (n) => n.packageName == notification.packageName && n.isRemoved,
-        );
-        if (removedNotif != null) {
+        // Find the notification by id
+        final idx = _notifications.indexWhere((n) => n.id == notification.id);
+        if (idx != -1) {
+          final removedNotif = _notifications[idx].copyWith(isRemoved: true);
           await addToHistory(removedNotif);
+          await _db.deleteNotification(removedNotif.id);
+          _notifications.removeAt(idx);
           debugPrint(
-            'NotificationProvider: Deleting notification ${removedNotif.id} from active database...',
+            'NotificationProvider: Notification \\${removedNotif.id} deleted from active database.',
           );
-          await _db.deleteNotification(
-            removedNotif.id,
-          ); // Delete from active notifications
-          debugPrint(
-            'NotificationProvider: Notification ${removedNotif.id} deleted from active database.',
-          );
+          notifyListeners();
         }
       } else {
         // Deduplicate by ID
         if (!_notifications.any((n) => n.id == notification.id)) {
           _notifications.insert(0, notification);
           debugPrint(
-            'NotificationProvider: Inserting new notification ${notification.id} into database...',
+            'NotificationProvider: Inserting new notification \\${notification.id} into database...',
           );
           // Save the new notification to the database
           await _db.insertNotification(_toDbNotification(notification));
           debugPrint(
-            'NotificationProvider: Notification ${notification.id} inserted into database.',
+            'NotificationProvider: Notification \\${notification.id} inserted into database.',
           );
         }
       }
       debugPrint(
-        'Provider notifications list now has ${_notifications.length} items',
+        'Provider notifications list now has \\${_notifications.length} items',
       );
       notifyListeners();
     });
@@ -184,6 +178,9 @@ class NotificationProvider with ChangeNotifier {
     debugPrint(
       'NotificationProvider: All notifications cleared from database.',
     );
+
+    // Clear all notifications from the system tray
+    await _notificationService.clearAllNotifications();
 
     // Clear all notifications from the in-memory list
     _notifications = [];
@@ -237,16 +234,19 @@ class NotificationProvider with ChangeNotifier {
     final appNotifications =
         _notifications.where((n) => n.packageName == packageName).toList();
 
-    // Add all to history
+    // Add all to history and remove from system tray
     for (final notification in appNotifications) {
       await addToHistory(notification);
+      await _notificationService.removeNotificationFromSystemTray(
+        notification.key,
+      );
       // Delete from active notifications in the database
       debugPrint(
-        'NotificationProvider: Deleting notification ${notification.id} for app $packageName from active database...',
+        'NotificationProvider: Deleting notification \\${notification.id} for app $packageName from active database...',
       );
       await _db.deleteNotification(notification.id);
       debugPrint(
-        'NotificationProvider: Notification ${notification.id} for app $packageName deleted from active database.',
+        'NotificationProvider: Notification \\${notification.id} for app $packageName deleted from active database.',
       );
     }
 
@@ -266,6 +266,9 @@ class NotificationProvider with ChangeNotifier {
 
     // Add to history before removing
     await addToHistory(notification);
+    await _notificationService.removeNotificationFromSystemTray(
+      notification.key,
+    );
 
     // Remove from active notifications
     _notifications.removeWhere((n) => n.id == id);
@@ -297,11 +300,11 @@ class NotificationProvider with ChangeNotifier {
 
     for (final notification in paginatedNotifications) {
       if (!notification.isRemoved) {
-        final appName = notification.appName;
-        if (!groupedNotifications.containsKey(appName)) {
-          groupedNotifications[appName] = [];
+        final packageName = notification.packageName;
+        if (!groupedNotifications.containsKey(packageName)) {
+          groupedNotifications[packageName] = [];
         }
-        groupedNotifications[appName]!.add(notification);
+        groupedNotifications[packageName]!.add(notification);
       }
     }
 
@@ -361,12 +364,13 @@ class NotificationProvider with ChangeNotifier {
   // Add to notification history
   Future<void> addToHistory(AppNotification notification) async {
     debugPrint(
-      'NotificationProvider: Adding notification ${notification.id} to history database...',
+      'NotificationProvider: Adding notification \\${notification.id} to history database...',
     );
     await _db.insertHistory(_toDbHistory(notification));
     debugPrint(
-      'NotificationProvider: Notification ${notification.id} added to history database.',
+      'NotificationProvider: Notification \\${notification.id} added to history database.',
     );
+    await loadHistory(); // Ensure UI updates
   }
 
   // Restore a notification from history (undo)
@@ -407,6 +411,7 @@ class NotificationProvider with ChangeNotifier {
     timestamp: n.timestamp,
     iconData: n.iconData,
     isRemoved: n.isRemoved,
+    key: n.key,
   );
   AppNotification _fromDbNotificationHistory(NotificationHistoryData n) =>
       AppNotification(
@@ -418,6 +423,7 @@ class NotificationProvider with ChangeNotifier {
         timestamp: n.timestamp,
         iconData: n.iconData,
         isRemoved: n.isRemoved,
+        key: n.key,
       );
 
   // Helper to convert AppNotification to NotificationsCompanion
@@ -431,6 +437,7 @@ class NotificationProvider with ChangeNotifier {
       timestamp: Value(notification.timestamp),
       iconData: Value(notification.iconData),
       isRemoved: Value(notification.isRemoved),
+      key: Value(notification.key),
     );
   }
 
@@ -445,6 +452,7 @@ class NotificationProvider with ChangeNotifier {
       timestamp: Value(notification.timestamp),
       iconData: Value(notification.iconData),
       isRemoved: Value(notification.isRemoved),
+      key: Value(notification.key),
     );
   }
 

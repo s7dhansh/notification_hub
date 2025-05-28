@@ -1,13 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/material.dart' show debugPrint;
+import 'package:flutter/services.dart'
+    show MethodChannel, PlatformException, MethodCall;
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'icon_cache_service.dart';
 import '../models/notification_model.dart';
 
 class NotificationService {
@@ -16,7 +14,7 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  // final _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   final _notificationsStreamController =
       StreamController<AppNotification>.broadcast();
@@ -277,6 +275,27 @@ class NotificationService {
   void dispose() {
     _notificationsStreamController.close();
     debugPrint('NotificationService: Disposed.');
+  }
+
+  Future<void> clearAllNotifications() async {
+    try {
+      await _notificationChannel.invokeMethod('clearAllNotifications');
+    } catch (e) {
+      debugPrint(
+        'NotificationService: Failed to clear all notifications: \\${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> removeNotificationFromSystemTray(String? key) async {
+    if (key == null) return;
+    try {
+      await _notificationChannel.invokeMethod('removeNotification', {
+        'key': key,
+      });
+    } catch (e) {
+      debugPrint('NotificationService: Failed to remove notification: $e');
+    }
   }
 }
 

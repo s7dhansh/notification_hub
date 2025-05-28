@@ -9,6 +9,7 @@ class AppNotification {
   final DateTime timestamp;
   final String? iconData; // Can be a Base64 string representing the app icon
   final bool isRemoved;
+  final String? key; // Android notification key for system tray removal
 
   AppNotification({
     required this.id,
@@ -19,6 +20,7 @@ class AppNotification {
     required this.timestamp,
     this.iconData,
     this.isRemoved = false,
+    this.key,
   });
 
   factory AppNotification.fromMap(Map<String, dynamic> map) {
@@ -33,6 +35,7 @@ class AppNotification {
       ),
       iconData: map['iconData'],
       isRemoved: map['isRemoved'] ?? false,
+      key: map['key'],
     );
   }
 
@@ -46,6 +49,7 @@ class AppNotification {
       'timestamp': timestamp.millisecondsSinceEpoch,
       'iconData': iconData,
       'isRemoved': isRemoved,
+      'key': key,
     };
   }
 
@@ -58,6 +62,7 @@ class AppNotification {
     DateTime? timestamp,
     String? iconData,
     bool? isRemoved,
+    String? key,
   }) {
     return AppNotification(
       id: id ?? this.id,
@@ -68,6 +73,7 @@ class AppNotification {
       timestamp: timestamp ?? this.timestamp,
       iconData: iconData ?? this.iconData,
       isRemoved: isRemoved ?? this.isRemoved,
+      key: key ?? this.key,
     );
   }
 }

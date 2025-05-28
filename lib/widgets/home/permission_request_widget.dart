@@ -1,8 +1,18 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart'
+    show
+        EdgeInsets,
+        ElevatedButton,
+        Icons,
+        ScaffoldMessenger,
+        SnackBar,
+        Text,
+        Widget,
+        BuildContext,
+        StatelessWidget;
+import 'package:provider/provider.dart' show Provider;
 
-import '../../providers/notification_provider.dart';
-import '../empty_state.dart';
+import '../../providers/notification_provider.dart' show NotificationProvider;
+import '../empty_state.dart' show EmptyState;
 
 class PermissionRequestWidget extends StatelessWidget {
   const PermissionRequestWidget({super.key});

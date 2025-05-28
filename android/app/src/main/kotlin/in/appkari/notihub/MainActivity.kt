@@ -76,6 +76,10 @@ class MainActivity : FlutterActivity() {
                     sendTestNotification(title, body)
                     result.success(true)
                 }
+                "clearAllNotifications" -> {
+                    NotiHubNotificationService.clearAllNotifications()
+                    result.success(null)
+                }
                 else -> {
                     result.notImplemented()
                 }

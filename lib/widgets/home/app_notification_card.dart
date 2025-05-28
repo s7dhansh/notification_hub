@@ -1,12 +1,45 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';
-import 'dart:convert';
+import 'package:flutter/material.dart'
+    show
+        AlertDialog,
+        BorderRadius,
+        BoxDecoration,
+        BuildContext,
+        Card,
+        CircleAvatar,
+        Colors,
+        Column,
+        Container,
+        EdgeInsets,
+        FontWeight,
+        FutureBuilder,
+        Icon,
+        IconButton,
+        Icons,
+        ListTile,
+        MainAxisSize,
+        MemoryImage,
+        Navigator,
+        Padding,
+        RoundedRectangleBorder,
+        Row,
+        ScaffoldMessenger,
+        SnackBar,
+        SnackBarAction,
+        State,
+        StatefulWidget,
+        Text,
+        TextButton,
+        TextStyle,
+        Widget,
+        showDialog;
+import 'package:provider/provider.dart' show Provider;
+import 'package:flutter/foundation.dart' show Uint8List;
+import 'dart:convert' show base64Decode;
 
-import '../../models/notification_model.dart';
-import '../../providers/notification_provider.dart';
-import '../../services/icon_cache_service.dart';
-import 'notification_item.dart';
+import '../../models/notification_model.dart' show AppNotification;
+import '../../providers/notification_provider.dart' show NotificationProvider;
+import '../../services/icon_cache_service.dart' show IconCacheService;
+import 'notification_item.dart' show DismissibleNotificationItem;
 
 class AppNotificationCard extends StatefulWidget {
   final String packageName;

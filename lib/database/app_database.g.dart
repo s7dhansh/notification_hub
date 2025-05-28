@@ -95,6 +95,15 @@ class $NotificationsTable extends Notifications
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -105,6 +114,7 @@ class $NotificationsTable extends Notifications
     timestamp,
     iconData,
     isRemoved,
+    key,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -178,6 +188,12 @@ class $NotificationsTable extends Notifications
         isRemoved.isAcceptableOrUnknown(data['is_removed']!, _isRemovedMeta),
       );
     }
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    }
     return context;
   }
 
@@ -226,6 +242,10 @@ class $NotificationsTable extends Notifications
             DriftSqlType.bool,
             data['${effectivePrefix}is_removed'],
           )!,
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      ),
     );
   }
 
@@ -244,6 +264,7 @@ class Notification extends DataClass implements Insertable<Notification> {
   final DateTime timestamp;
   final String? iconData;
   final bool isRemoved;
+  final String? key;
   const Notification({
     required this.id,
     required this.packageName,
@@ -253,6 +274,7 @@ class Notification extends DataClass implements Insertable<Notification> {
     required this.timestamp,
     this.iconData,
     required this.isRemoved,
+    this.key,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -267,6 +289,9 @@ class Notification extends DataClass implements Insertable<Notification> {
       map['icon_data'] = Variable<String>(iconData);
     }
     map['is_removed'] = Variable<bool>(isRemoved);
+    if (!nullToAbsent || key != null) {
+      map['key'] = Variable<String>(key);
+    }
     return map;
   }
 
@@ -283,6 +308,7 @@ class Notification extends DataClass implements Insertable<Notification> {
               ? const Value.absent()
               : Value(iconData),
       isRemoved: Value(isRemoved),
+      key: key == null && nullToAbsent ? const Value.absent() : Value(key),
     );
   }
 
@@ -300,6 +326,7 @@ class Notification extends DataClass implements Insertable<Notification> {
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       iconData: serializer.fromJson<String?>(json['iconData']),
       isRemoved: serializer.fromJson<bool>(json['isRemoved']),
+      key: serializer.fromJson<String?>(json['key']),
     );
   }
   @override
@@ -314,6 +341,7 @@ class Notification extends DataClass implements Insertable<Notification> {
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'iconData': serializer.toJson<String?>(iconData),
       'isRemoved': serializer.toJson<bool>(isRemoved),
+      'key': serializer.toJson<String?>(key),
     };
   }
 
@@ -326,6 +354,7 @@ class Notification extends DataClass implements Insertable<Notification> {
     DateTime? timestamp,
     Value<String?> iconData = const Value.absent(),
     bool? isRemoved,
+    Value<String?> key = const Value.absent(),
   }) => Notification(
     id: id ?? this.id,
     packageName: packageName ?? this.packageName,
@@ -335,6 +364,7 @@ class Notification extends DataClass implements Insertable<Notification> {
     timestamp: timestamp ?? this.timestamp,
     iconData: iconData.present ? iconData.value : this.iconData,
     isRemoved: isRemoved ?? this.isRemoved,
+    key: key.present ? key.value : this.key,
   );
   Notification copyWithCompanion(NotificationsCompanion data) {
     return Notification(
@@ -347,6 +377,7 @@ class Notification extends DataClass implements Insertable<Notification> {
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       iconData: data.iconData.present ? data.iconData.value : this.iconData,
       isRemoved: data.isRemoved.present ? data.isRemoved.value : this.isRemoved,
+      key: data.key.present ? data.key.value : this.key,
     );
   }
 
@@ -360,7 +391,8 @@ class Notification extends DataClass implements Insertable<Notification> {
           ..write('body: $body, ')
           ..write('timestamp: $timestamp, ')
           ..write('iconData: $iconData, ')
-          ..write('isRemoved: $isRemoved')
+          ..write('isRemoved: $isRemoved, ')
+          ..write('key: $key')
           ..write(')'))
         .toString();
   }
@@ -375,6 +407,7 @@ class Notification extends DataClass implements Insertable<Notification> {
     timestamp,
     iconData,
     isRemoved,
+    key,
   );
   @override
   bool operator ==(Object other) =>
@@ -387,7 +420,8 @@ class Notification extends DataClass implements Insertable<Notification> {
           other.body == this.body &&
           other.timestamp == this.timestamp &&
           other.iconData == this.iconData &&
-          other.isRemoved == this.isRemoved);
+          other.isRemoved == this.isRemoved &&
+          other.key == this.key);
 }
 
 class NotificationsCompanion extends UpdateCompanion<Notification> {
@@ -399,6 +433,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
   final Value<DateTime> timestamp;
   final Value<String?> iconData;
   final Value<bool> isRemoved;
+  final Value<String?> key;
   final Value<int> rowid;
   const NotificationsCompanion({
     this.id = const Value.absent(),
@@ -409,6 +444,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
     this.timestamp = const Value.absent(),
     this.iconData = const Value.absent(),
     this.isRemoved = const Value.absent(),
+    this.key = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotificationsCompanion.insert({
@@ -420,6 +456,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
     required DateTime timestamp,
     this.iconData = const Value.absent(),
     this.isRemoved = const Value.absent(),
+    this.key = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        packageName = Value(packageName),
@@ -436,6 +473,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
     Expression<DateTime>? timestamp,
     Expression<String>? iconData,
     Expression<bool>? isRemoved,
+    Expression<String>? key,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -447,6 +485,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
       if (timestamp != null) 'timestamp': timestamp,
       if (iconData != null) 'icon_data': iconData,
       if (isRemoved != null) 'is_removed': isRemoved,
+      if (key != null) 'key': key,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -460,6 +499,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
     Value<DateTime>? timestamp,
     Value<String?>? iconData,
     Value<bool>? isRemoved,
+    Value<String?>? key,
     Value<int>? rowid,
   }) {
     return NotificationsCompanion(
@@ -471,6 +511,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
       timestamp: timestamp ?? this.timestamp,
       iconData: iconData ?? this.iconData,
       isRemoved: isRemoved ?? this.isRemoved,
+      key: key ?? this.key,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -502,6 +543,9 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
     if (isRemoved.present) {
       map['is_removed'] = Variable<bool>(isRemoved.value);
     }
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -519,6 +563,7 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
           ..write('timestamp: $timestamp, ')
           ..write('iconData: $iconData, ')
           ..write('isRemoved: $isRemoved, ')
+          ..write('key: $key, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -617,6 +662,15 @@ class $NotificationHistoryTable extends NotificationHistory
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -627,6 +681,7 @@ class $NotificationHistoryTable extends NotificationHistory
     timestamp,
     iconData,
     isRemoved,
+    key,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -700,6 +755,12 @@ class $NotificationHistoryTable extends NotificationHistory
         isRemoved.isAcceptableOrUnknown(data['is_removed']!, _isRemovedMeta),
       );
     }
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    }
     return context;
   }
 
@@ -751,6 +812,10 @@ class $NotificationHistoryTable extends NotificationHistory
             DriftSqlType.bool,
             data['${effectivePrefix}is_removed'],
           )!,
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      ),
     );
   }
 
@@ -770,6 +835,7 @@ class NotificationHistoryData extends DataClass
   final DateTime timestamp;
   final String? iconData;
   final bool isRemoved;
+  final String? key;
   const NotificationHistoryData({
     required this.id,
     required this.packageName,
@@ -779,6 +845,7 @@ class NotificationHistoryData extends DataClass
     required this.timestamp,
     this.iconData,
     required this.isRemoved,
+    this.key,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -793,6 +860,9 @@ class NotificationHistoryData extends DataClass
       map['icon_data'] = Variable<String>(iconData);
     }
     map['is_removed'] = Variable<bool>(isRemoved);
+    if (!nullToAbsent || key != null) {
+      map['key'] = Variable<String>(key);
+    }
     return map;
   }
 
@@ -809,6 +879,7 @@ class NotificationHistoryData extends DataClass
               ? const Value.absent()
               : Value(iconData),
       isRemoved: Value(isRemoved),
+      key: key == null && nullToAbsent ? const Value.absent() : Value(key),
     );
   }
 
@@ -826,6 +897,7 @@ class NotificationHistoryData extends DataClass
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       iconData: serializer.fromJson<String?>(json['iconData']),
       isRemoved: serializer.fromJson<bool>(json['isRemoved']),
+      key: serializer.fromJson<String?>(json['key']),
     );
   }
   @override
@@ -840,6 +912,7 @@ class NotificationHistoryData extends DataClass
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'iconData': serializer.toJson<String?>(iconData),
       'isRemoved': serializer.toJson<bool>(isRemoved),
+      'key': serializer.toJson<String?>(key),
     };
   }
 
@@ -852,6 +925,7 @@ class NotificationHistoryData extends DataClass
     DateTime? timestamp,
     Value<String?> iconData = const Value.absent(),
     bool? isRemoved,
+    Value<String?> key = const Value.absent(),
   }) => NotificationHistoryData(
     id: id ?? this.id,
     packageName: packageName ?? this.packageName,
@@ -861,6 +935,7 @@ class NotificationHistoryData extends DataClass
     timestamp: timestamp ?? this.timestamp,
     iconData: iconData.present ? iconData.value : this.iconData,
     isRemoved: isRemoved ?? this.isRemoved,
+    key: key.present ? key.value : this.key,
   );
   NotificationHistoryData copyWithCompanion(NotificationHistoryCompanion data) {
     return NotificationHistoryData(
@@ -873,6 +948,7 @@ class NotificationHistoryData extends DataClass
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       iconData: data.iconData.present ? data.iconData.value : this.iconData,
       isRemoved: data.isRemoved.present ? data.isRemoved.value : this.isRemoved,
+      key: data.key.present ? data.key.value : this.key,
     );
   }
 
@@ -886,7 +962,8 @@ class NotificationHistoryData extends DataClass
           ..write('body: $body, ')
           ..write('timestamp: $timestamp, ')
           ..write('iconData: $iconData, ')
-          ..write('isRemoved: $isRemoved')
+          ..write('isRemoved: $isRemoved, ')
+          ..write('key: $key')
           ..write(')'))
         .toString();
   }
@@ -901,6 +978,7 @@ class NotificationHistoryData extends DataClass
     timestamp,
     iconData,
     isRemoved,
+    key,
   );
   @override
   bool operator ==(Object other) =>
@@ -913,7 +991,8 @@ class NotificationHistoryData extends DataClass
           other.body == this.body &&
           other.timestamp == this.timestamp &&
           other.iconData == this.iconData &&
-          other.isRemoved == this.isRemoved);
+          other.isRemoved == this.isRemoved &&
+          other.key == this.key);
 }
 
 class NotificationHistoryCompanion
@@ -926,6 +1005,7 @@ class NotificationHistoryCompanion
   final Value<DateTime> timestamp;
   final Value<String?> iconData;
   final Value<bool> isRemoved;
+  final Value<String?> key;
   final Value<int> rowid;
   const NotificationHistoryCompanion({
     this.id = const Value.absent(),
@@ -936,6 +1016,7 @@ class NotificationHistoryCompanion
     this.timestamp = const Value.absent(),
     this.iconData = const Value.absent(),
     this.isRemoved = const Value.absent(),
+    this.key = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotificationHistoryCompanion.insert({
@@ -947,6 +1028,7 @@ class NotificationHistoryCompanion
     required DateTime timestamp,
     this.iconData = const Value.absent(),
     this.isRemoved = const Value.absent(),
+    this.key = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        packageName = Value(packageName),
@@ -963,6 +1045,7 @@ class NotificationHistoryCompanion
     Expression<DateTime>? timestamp,
     Expression<String>? iconData,
     Expression<bool>? isRemoved,
+    Expression<String>? key,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -974,6 +1057,7 @@ class NotificationHistoryCompanion
       if (timestamp != null) 'timestamp': timestamp,
       if (iconData != null) 'icon_data': iconData,
       if (isRemoved != null) 'is_removed': isRemoved,
+      if (key != null) 'key': key,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -987,6 +1071,7 @@ class NotificationHistoryCompanion
     Value<DateTime>? timestamp,
     Value<String?>? iconData,
     Value<bool>? isRemoved,
+    Value<String?>? key,
     Value<int>? rowid,
   }) {
     return NotificationHistoryCompanion(
@@ -998,6 +1083,7 @@ class NotificationHistoryCompanion
       timestamp: timestamp ?? this.timestamp,
       iconData: iconData ?? this.iconData,
       isRemoved: isRemoved ?? this.isRemoved,
+      key: key ?? this.key,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1029,6 +1115,9 @@ class NotificationHistoryCompanion
     if (isRemoved.present) {
       map['is_removed'] = Variable<bool>(isRemoved.value);
     }
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1046,6 +1135,7 @@ class NotificationHistoryCompanion
           ..write('timestamp: $timestamp, ')
           ..write('iconData: $iconData, ')
           ..write('isRemoved: $isRemoved, ')
+          ..write('key: $key, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1078,6 +1168,7 @@ typedef $$NotificationsTableCreateCompanionBuilder =
       required DateTime timestamp,
       Value<String?> iconData,
       Value<bool> isRemoved,
+      Value<String?> key,
       Value<int> rowid,
     });
 typedef $$NotificationsTableUpdateCompanionBuilder =
@@ -1090,6 +1181,7 @@ typedef $$NotificationsTableUpdateCompanionBuilder =
       Value<DateTime> timestamp,
       Value<String?> iconData,
       Value<bool> isRemoved,
+      Value<String?> key,
       Value<int> rowid,
     });
 
@@ -1139,6 +1231,11 @@ class $$NotificationsTableFilterComposer
 
   ColumnFilters<bool> get isRemoved => $composableBuilder(
     column: $table.isRemoved,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1191,6 +1288,11 @@ class $$NotificationsTableOrderingComposer
     column: $table.isRemoved,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NotificationsTableAnnotationComposer
@@ -1227,6 +1329,9 @@ class $$NotificationsTableAnnotationComposer
 
   GeneratedColumn<bool> get isRemoved =>
       $composableBuilder(column: $table.isRemoved, builder: (column) => column);
+
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
 }
 
 class $$NotificationsTableTableManager
@@ -1272,6 +1377,7 @@ class $$NotificationsTableTableManager
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<String?> iconData = const Value.absent(),
                 Value<bool> isRemoved = const Value.absent(),
+                Value<String?> key = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotificationsCompanion(
                 id: id,
@@ -1282,6 +1388,7 @@ class $$NotificationsTableTableManager
                 timestamp: timestamp,
                 iconData: iconData,
                 isRemoved: isRemoved,
+                key: key,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1294,6 +1401,7 @@ class $$NotificationsTableTableManager
                 required DateTime timestamp,
                 Value<String?> iconData = const Value.absent(),
                 Value<bool> isRemoved = const Value.absent(),
+                Value<String?> key = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotificationsCompanion.insert(
                 id: id,
@@ -1304,6 +1412,7 @@ class $$NotificationsTableTableManager
                 timestamp: timestamp,
                 iconData: iconData,
                 isRemoved: isRemoved,
+                key: key,
                 rowid: rowid,
               ),
           withReferenceMapper:
@@ -1348,6 +1457,7 @@ typedef $$NotificationHistoryTableCreateCompanionBuilder =
       required DateTime timestamp,
       Value<String?> iconData,
       Value<bool> isRemoved,
+      Value<String?> key,
       Value<int> rowid,
     });
 typedef $$NotificationHistoryTableUpdateCompanionBuilder =
@@ -1360,6 +1470,7 @@ typedef $$NotificationHistoryTableUpdateCompanionBuilder =
       Value<DateTime> timestamp,
       Value<String?> iconData,
       Value<bool> isRemoved,
+      Value<String?> key,
       Value<int> rowid,
     });
 
@@ -1409,6 +1520,11 @@ class $$NotificationHistoryTableFilterComposer
 
   ColumnFilters<bool> get isRemoved => $composableBuilder(
     column: $table.isRemoved,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1461,6 +1577,11 @@ class $$NotificationHistoryTableOrderingComposer
     column: $table.isRemoved,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NotificationHistoryTableAnnotationComposer
@@ -1497,6 +1618,9 @@ class $$NotificationHistoryTableAnnotationComposer
 
   GeneratedColumn<bool> get isRemoved =>
       $composableBuilder(column: $table.isRemoved, builder: (column) => column);
+
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
 }
 
 class $$NotificationHistoryTableTableManager
@@ -1553,6 +1677,7 @@ class $$NotificationHistoryTableTableManager
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<String?> iconData = const Value.absent(),
                 Value<bool> isRemoved = const Value.absent(),
+                Value<String?> key = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotificationHistoryCompanion(
                 id: id,
@@ -1563,6 +1688,7 @@ class $$NotificationHistoryTableTableManager
                 timestamp: timestamp,
                 iconData: iconData,
                 isRemoved: isRemoved,
+                key: key,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1575,6 +1701,7 @@ class $$NotificationHistoryTableTableManager
                 required DateTime timestamp,
                 Value<String?> iconData = const Value.absent(),
                 Value<bool> isRemoved = const Value.absent(),
+                Value<String?> key = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotificationHistoryCompanion.insert(
                 id: id,
@@ -1585,6 +1712,7 @@ class $$NotificationHistoryTableTableManager
                 timestamp: timestamp,
                 iconData: iconData,
                 isRemoved: isRemoved,
+                key: key,
                 rowid: rowid,
               ),
           withReferenceMapper:

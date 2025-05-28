@@ -136,9 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           // Use the new NotificationListView
-          return NotificationListView(
-            groupedNotifications: groupedNotifications,
-          );
+          return const NotificationListView();
         },
       ),
       floatingActionButton: Builder(

@@ -1,8 +1,27 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/material.dart'
+    show
+        MaterialPageRoute,
+        Padding,
+        Column,
+        Row,
+        Expanded,
+        Navigator,
+        Text,
+        TextOverflow,
+        Widget,
+        BuildContext,
+        StatelessWidget,
+        Theme,
+        EdgeInsets,
+        MainAxisAlignment,
+        CrossAxisAlignment,
+        InkWell,
+        TextStyle;
+import 'package:intl/intl.dart' show DateFormat;
 
-import '../../models/notification_model.dart';
-import '../../screens/notification_detail_screen.dart';
+import '../../models/notification_model.dart' show AppNotification;
+import '../../screens/notification_detail_screen.dart'
+    show NotificationDetailScreen;
 
 class NotificationItemWidget extends StatelessWidget {
   final AppNotification notification;

@@ -16,6 +16,7 @@ class Notifications extends Table {
   DateTimeColumn get timestamp => dateTime()();
   TextColumn get iconData => text().nullable()();
   BoolColumn get isRemoved => boolean().withDefault(const Constant(false))();
+  TextColumn get key => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -30,6 +31,7 @@ class NotificationHistory extends Table {
   DateTimeColumn get timestamp => dateTime()();
   TextColumn get iconData => text().nullable()();
   BoolColumn get isRemoved => boolean().withDefault(const Constant(false))();
+  TextColumn get key => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -40,7 +42,26 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (Migrator m) {
+      return m.createAll();
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from < 2) {
+        await m.addColumn(
+          notifications,
+          notifications.$columns.firstWhere((c) => c.name == 'key'),
+        );
+        await m.addColumn(
+          notificationHistory,
+          notificationHistory.$columns.firstWhere((c) => c.name == 'key'),
+        );
+      }
+    },
+  );
 
   // Notification CRUD
   Future<List<Notification>> getAllNotifications() =>

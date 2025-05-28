@@ -26,6 +26,14 @@ class NotiHubNotificationService : NotificationListenerService() {
                 instance?.cancelNotification(key)
             }
         }
+
+        fun clearAllNotifications() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                instance?.cancelAllNotifications()
+            } else {
+                instance?.activeNotifications?.forEach { instance?.cancelNotification(it.key) }
+            }
+        }
     }
 
     override fun onCreate() {
@@ -162,5 +170,79 @@ class NotiHubNotificationService : NotificationListenerService() {
         if (shouldRemoveSystemTrayNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
              cancelNotification(key)
          }
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        Log.d("NotiHubService", "Notification removed: ${sbn.key}")
+        val packageManager = applicationContext.packageManager
+        val appName = try {
+            val applicationInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
+            packageManager.getApplicationLabel(applicationInfo).toString()
+        } catch (e: Exception) {
+            sbn.packageName
+        }
+        val extras = sbn.notification.extras
+        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+        var iconData: String? = null
+        try {
+            val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val drawable = sbn.notification.smallIcon?.loadDrawable(applicationContext)
+                if (drawable != null) {
+                    val bitmap = Bitmap.createBitmap(
+                        drawable.intrinsicWidth,
+                        drawable.intrinsicHeight,
+                        Bitmap.Config.ARGB_8888
+                    )
+                    val canvas = Canvas(bitmap)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
+                    bitmap
+                } else {
+                    null
+                }
+            } else {
+                try {
+                    val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
+                    val drawable = appInfo.loadIcon(packageManager)
+                    val bitmap = Bitmap.createBitmap(
+                        drawable.intrinsicWidth,
+                        drawable.intrinsicHeight,
+                        Bitmap.Config.ARGB_8888
+                    )
+                    val canvas = Canvas(bitmap)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
+                    bitmap
+                } catch (e: Exception) {
+                    Log.e("NotiHubService", "Error getting app icon: ${e.message}")
+                    null
+                }
+            }
+            if (icon != null) {
+                val stream = java.io.ByteArrayOutputStream()
+                icon.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+                val byteArray = stream.toByteArray()
+                iconData = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
+            }
+        } catch (e: Exception) {
+            Log.e("NotiHubService", "Error getting app icon: ${e.message}")
+        }
+        val notificationData = mutableMapOf<String, Any?>(
+            "packageName" to sbn.packageName,
+            "appName" to appName,
+            "title" to title,
+            "body" to text,
+            "id" to sbn.id,
+            "tag" to sbn.tag,
+            "key" to sbn.key,
+            "iconData" to iconData
+        )
+        extras?.keySet()?.forEach { key ->
+            extras.get(key)?.let { value ->
+                notificationData["extra_$key"] = value.toString()
+            }
+        }
+        channel?.invokeMethod("onNotificationRemoved", notificationData)
     }
 } 
