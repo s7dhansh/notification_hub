@@ -157,29 +157,6 @@ class AppNotificationCardState extends State<AppNotificationCard> {
         padding: const EdgeInsets.only(right: 24.0),
         child: const Icon(Icons.delete, color: Colors.white, size: 32),
       ),
-      confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-              context: context,
-              builder:
-                  (context) => AlertDialog(
-                    title: const Text('Clear Notifications'),
-                    content: const Text(
-                      'Are you sure you want to clear all notifications for this app?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Clear'),
-                      ),
-                    ],
-                  ),
-            ) ??
-            false;
-      },
       onDismissed: (direction) async {
         if (widget.onDismissed != null) {
           widget.onDismissed!();
