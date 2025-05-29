@@ -20,17 +20,23 @@ class NotiHubNotificationService : NotificationListenerService() {
         var instance: NotiHubNotificationService? = null
         var shouldRemoveSystemTrayNotification: Boolean = false // Default to false (keep)
         var isListening: Boolean = false // Controls forwarding to Flutter
+        val programmaticallyRemovedKeys = mutableSetOf<String>()
 
         fun removeNotificationByKey(key: String) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                programmaticallyRemovedKeys.add(key)
                 instance?.cancelNotification(key)
             }
         }
 
+        // Only clears notifications from the system tray, not the app's notification list
         fun clearAllNotifications() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Add all keys to programmaticallyRemovedKeys before removal
+                instance?.activeNotifications?.forEach { programmaticallyRemovedKeys.add(it.key) }
                 instance?.cancelAllNotifications()
             } else {
+                instance?.activeNotifications?.forEach { programmaticallyRemovedKeys.add(it.key) }
                 instance?.activeNotifications?.forEach { instance?.cancelNotification(it.key) }
             }
         }
@@ -166,14 +172,17 @@ class NotiHubNotificationService : NotificationListenerService() {
         
         Log.d("NotiHubService", "shouldRemoveSystemTrayNotification: $shouldRemoveSystemTrayNotification")
         // Remove the notification from the system tray if needed and the setting is enabled
-        val key = sbn.key
         if (shouldRemoveSystemTrayNotification && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-             cancelNotification(key)
-         }
+            val key = sbn.key
+            programmaticallyRemovedKeys.add(key)
+            cancelNotification(key)
+        }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        Log.d("NotiHubService", "Notification removed: ${sbn.key}")
+        // Note: onNotificationRemoved is called for both user and programmatic removals.
+        // Dart side now ignores programmatic removals using a key tracking set.
+        Log.d("NotiHubService", "Notification removed: \\${sbn.key}")
         val packageManager = applicationContext.packageManager
         val appName = try {
             val applicationInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
@@ -242,6 +251,10 @@ class NotiHubNotificationService : NotificationListenerService() {
             extras.get(key)?.let { value ->
                 notificationData["extra_$key"] = value.toString()
             }
+        }
+        val key = sbn.key
+        if (programmaticallyRemovedKeys.remove(key)) {
+            notificationData["programmatic"] = true
         }
         channel?.invokeMethod("onNotificationRemoved", notificationData)
     }

@@ -42,6 +42,10 @@ class MainActivity : FlutterActivity() {
                     val remove = call.argument<Boolean>("remove")
                     if (remove != null) {
                         NotiHubNotificationService.shouldRemoveSystemTrayNotification = remove
+                        if (remove) {
+                            // When enabling, clear all notifications from system tray immediately
+                            NotiHubNotificationService.clearAllNotifications()
+                        }
                         result.success(null)
                     } else {
                         result.error("INVALID_ARGUMENT", "Argument 'remove' is null", null)
@@ -79,6 +83,15 @@ class MainActivity : FlutterActivity() {
                 "clearAllNotifications" -> {
                     NotiHubNotificationService.clearAllNotifications()
                     result.success(null)
+                }
+                "acknowledgeAndRemoveNotification" -> {
+                    val key = call.argument<String>("key")
+                    if (key != null) {
+                        NotiHubNotificationService.removeNotificationByKey(key)
+                        result.success(null)
+                    } else {
+                        result.error("INVALID_KEY", "Key is null", null)
+                    }
                 }
                 else -> {
                     result.notImplemented()

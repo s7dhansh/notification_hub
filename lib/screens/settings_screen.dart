@@ -177,9 +177,9 @@ class SettingsScreenState extends State<SettingsScreen> {
 
               // System Tray Removal Toggle
               SwitchListTile(
-                title: const Text('Remove Notifications from System Tray'),
+                title: const Text('Remove Notifications from Shade'),
                 subtitle: const Text(
-                  'Disable to keep notifications in the system tray after they are captured.',
+                  'Disable to keep notifications in the shade after they are captured.',
                 ),
                 value: _removeSystemTrayNotification,
                 onChanged: (value) async {

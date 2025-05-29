@@ -28,14 +28,26 @@ class NotificationService {
   Set<String> _excludedApps = {};
   final String _excludedAppsKey = 'excludedApps'; // Key for SharedPreferences
 
+  // Track programmatic removals
+  final Set<String> _programmaticallyRemovedKeys = {};
+
   static final MethodChannel _notificationChannel = MethodChannel(
     'notification_capture',
   );
+
+  bool _removeSystemTrayNotification = true;
+  bool get removeSystemTrayNotification => _removeSystemTrayNotification;
 
   // Initialize notification service
   Future<void> initialize() async {
     debugPrint('NotificationService: Initializing...');
     await _loadExcludedApps(); // Load excluded apps on initialization
+    // Load removeSystemTrayNotification setting from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    _removeSystemTrayNotification =
+        prefs.getBool('removeSystemTrayNotification') ?? true;
+    // Sync the setting to the Android service on app start
+    await updateRemoveSystemTraySetting(_removeSystemTrayNotification);
     debugPrint(
       'NotificationService: Initialized. Excluded apps loaded: $_excludedApps',
     );
@@ -123,18 +135,23 @@ class NotificationService {
         try {
           final Map<dynamic, dynamic> notificationData =
               Map<dynamic, dynamic>.from(call.arguments);
+          if (notificationData['programmatic'] == true) {
+            debugPrint(
+              'NotificationService: Ignoring programmatic removal for key: \\${notificationData['key']}',
+            );
+            return;
+          }
           final AppNotification notification = AppNotification.fromMap(
             Map<String, dynamic>.from(notificationData),
           );
-          // Assuming the platform sends the full notification data including ID
           debugPrint(
-            'NotificationService: Received notification removed: ${notification.id} from ${notification.packageName}',
+            'NotificationService: Received notification removed: \\${notification.id} from \\${notification.packageName}',
           );
           // Create a copy with isRemoved set to true
           final removedNotification = notification.copyWith(isRemoved: true);
           _notificationsStreamController.add(removedNotification);
         } catch (e) {
-          debugPrint('NotificationService: Error handling removal: $e');
+          debugPrint('NotificationService: Error handling removal: \\$e');
         }
         break;
       default:
@@ -264,9 +281,31 @@ class NotificationService {
       debugPrint(
         'Sent removeSystemTrayNotification setting to native: $remove',
       );
+      if (remove) {
+        // Remove all notifications from system tray, but keep them in the app
+        await clearAllNotificationsFromSystemTrayOnly();
+      }
+      _removeSystemTrayNotification = remove;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('removeSystemTrayNotification', remove);
     } on PlatformException catch (e) {
       debugPrint(
         'Failed to send removeSystemTrayNotification setting: ${e.message}',
+      );
+    }
+  }
+
+  /// Removes all notifications from the system tray, but keeps them in the app list
+  Future<void> clearAllNotificationsFromSystemTrayOnly() async {
+    try {
+      // Instead, just call the platform to clear all notifications
+      await _notificationChannel.invokeMethod('clearAllNotifications');
+      debugPrint(
+        'NotificationService: Cleared all notifications from system tray only.',
+      );
+    } catch (e) {
+      debugPrint(
+        'NotificationService: Failed to clear all notifications from system tray: $e',
       );
     }
   }
@@ -290,11 +329,12 @@ class NotificationService {
   Future<void> removeNotificationFromSystemTray(String? key) async {
     if (key == null) return;
     try {
+      _programmaticallyRemovedKeys.add(key);
       await _notificationChannel.invokeMethod('removeNotification', {
         'key': key,
       });
     } catch (e) {
-      debugPrint('NotificationService: Failed to remove notification: $e');
+      debugPrint('NotificationService: Failed to remove notification: \\$e');
     }
   }
 }
