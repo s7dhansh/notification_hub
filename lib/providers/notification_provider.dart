@@ -50,6 +50,10 @@ class NotificationProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _historyDays = prefs.getInt('historyDays') ?? 7;
     await _notificationService.initialize();
+    final hasPermission = await _notificationService.isPermissionGranted();
+    if (hasPermission) {
+      await _notificationService.startListening();
+    }
     await loadNotifications();
     await loadHistory();
     _startListeningToNotifications();
