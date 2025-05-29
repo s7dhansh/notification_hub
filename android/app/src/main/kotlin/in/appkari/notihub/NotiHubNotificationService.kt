@@ -105,48 +105,22 @@ class NotiHubNotificationService : NotificationListenerService() {
         // Get icon as bitmap and convert to base64
         var iconData: String? = null
         try {
-            val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val drawable = sbn.notification.smallIcon?.loadDrawable(applicationContext)
-                if (drawable != null) {
-                    val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth,
-                        drawable.intrinsicHeight,
-                        Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = Canvas(bitmap)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    bitmap
-                } else {
-                    null
-                }
-            } else {
-                try {
-                    val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
-                    val drawable = appInfo.loadIcon(packageManager)
-                    val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth,
-                        drawable.intrinsicHeight,
-                        Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = Canvas(bitmap)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    bitmap
-                } catch (e: Exception) {
-                    Log.e("NotiHubService", "Error getting app icon: ${e.message}")
-                    null
-                }
-            }
-            
-            if (icon != null) {
-                val stream = java.io.ByteArrayOutputStream()
-                icon.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
-                val byteArray = stream.toByteArray()
-                iconData = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
-            }
+            val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
+            val drawable = appInfo.loadIcon(packageManager)
+            val bitmap = Bitmap.createBitmap(
+                drawable.intrinsicWidth,
+                drawable.intrinsicHeight,
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            val stream = java.io.ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            val byteArray = stream.toByteArray()
+            iconData = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
         } catch (e: Exception) {
-            Log.e("NotiHubService", "Error getting app icon: ${e.message}")
+            Log.e("NotiHubService", "Error getting app icon: "+e.message)
         }
         
         // Send notification data to Flutter
@@ -195,47 +169,22 @@ class NotiHubNotificationService : NotificationListenerService() {
         val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         var iconData: String? = null
         try {
-            val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val drawable = sbn.notification.smallIcon?.loadDrawable(applicationContext)
-                if (drawable != null) {
-                    val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth,
-                        drawable.intrinsicHeight,
-                        Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = Canvas(bitmap)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    bitmap
-                } else {
-                    null
-                }
-            } else {
-                try {
-                    val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
-                    val drawable = appInfo.loadIcon(packageManager)
-                    val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth,
-                        drawable.intrinsicHeight,
-                        Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = Canvas(bitmap)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    bitmap
-                } catch (e: Exception) {
-                    Log.e("NotiHubService", "Error getting app icon: ${e.message}")
-                    null
-                }
-            }
-            if (icon != null) {
-                val stream = java.io.ByteArrayOutputStream()
-                icon.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
-                val byteArray = stream.toByteArray()
-                iconData = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
-            }
+            val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
+            val drawable = appInfo.loadIcon(packageManager)
+            val bitmap = Bitmap.createBitmap(
+                drawable.intrinsicWidth,
+                drawable.intrinsicHeight,
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            val stream = java.io.ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            val byteArray = stream.toByteArray()
+            iconData = android.util.Base64.encodeToString(byteArray, android.util.Base64.NO_WRAP)
         } catch (e: Exception) {
-            Log.e("NotiHubService", "Error getting app icon: ${e.message}")
+            Log.e("NotiHubService", "Error getting app icon: "+e.message)
         }
         val notificationData = mutableMapOf<String, Any?>(
             "packageName" to sbn.packageName,
