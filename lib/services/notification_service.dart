@@ -31,6 +31,15 @@ class NotificationService {
   // Track programmatic removals
   final Set<String> _programmaticallyRemovedKeys = {};
 
+  // Default excluded app package names (WhatsApp, SMS, call apps)
+  static const List<String> _defaultExcludedApps = [
+    'com.whatsapp', // WhatsApp
+    'com.google.android.apps.messaging', // Google Messages
+    'com.android.mms', // Default SMS/MMS
+    'com.android.dialer', // Default Phone/Dialer
+    'com.truecaller', // Truecaller (calls/SMS)
+  ];
+
   static final MethodChannel _notificationChannel = MethodChannel(
     'notification_capture',
   );
@@ -206,7 +215,17 @@ class NotificationService {
   Future<void> _loadExcludedApps() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _excludedApps = prefs.getStringList(_excludedAppsKey)?.toSet() ?? {};
+      final loaded = prefs.getStringList(_excludedAppsKey)?.toSet() ?? {};
+      // If exclusion list is empty, populate with defaults
+      if (loaded.isEmpty) {
+        _excludedApps = _defaultExcludedApps.toSet();
+        await prefs.setStringList(_excludedAppsKey, _defaultExcludedApps);
+        debugPrint(
+          'NotificationService: Set default excluded apps: \\$_excludedApps',
+        );
+      } else {
+        _excludedApps = loaded;
+      }
     } catch (e) {
       debugPrint('NotificationService: Error loading excluded apps: $e');
     }
