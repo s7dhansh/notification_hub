@@ -46,6 +46,7 @@ class NotiHubNotificationService : NotificationListenerService() {
         super.onCreate()
         Log.d("NotiHubService", "Service created")
         instance = this
+        // Do NOT start as a foreground service. Let the system manage this service.
     }
 
     override fun onDestroy() {

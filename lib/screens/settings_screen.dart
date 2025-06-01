@@ -194,6 +194,17 @@ class SettingsScreenState extends State<SettingsScreen> {
               ),
               const Divider(),
 
+              // Battery Optimization Tip
+              ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.blue),
+                title: const Text('Tip: Lock Notification Hub in Recents'),
+                subtitle: const Text(
+                  'For best reliability, lock Notification Hub in your recent apps list.\n'
+                  'On some devices (Xiaomi, Oppo, Vivo, etc.), swipe down on the app in recents and tap the lock icon.\n'
+                  'This prevents the system from killing the app in the background.',
+                ),
+              ),
+
               // App Management
               ListTile(
                 title: const Text('Manage Apps'),
