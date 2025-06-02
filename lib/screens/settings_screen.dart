@@ -33,7 +33,10 @@ import 'package:flutter/material.dart'
         showDialog,
         DropdownButton,
         DropdownMenuItem,
-        SwitchListTile;
+        SwitchListTile,
+        Column,
+        CrossAxisAlignment,
+        Image;
 import 'package:provider/provider.dart' show Consumer;
 import 'package:notification_listener_service/notification_listener_service.dart'
     show NotificationListenerService;
@@ -57,6 +60,7 @@ class SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSetting();
+    _showLockTipIfFirstLaunch();
   }
 
   Future<void> _loadSetting() async {
@@ -81,6 +85,84 @@ class SettingsScreenState extends State<SettingsScreen> {
   Future<int> _loadHistoryDays() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('historyDays') ?? 7;
+  }
+
+  Future<void> _showLockTipIfFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('shownLockTipDialog') ?? false;
+    if (!shown && mounted) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Tip: Lock Notification Hub in Recents'),
+              content: const Text(
+                'For best reliability, lock Notification Hub in your recent apps list.\n'
+                'On some devices (Xiaomi, Oppo, Vivo, etc.), swipe down on the app in recents and tap the lock icon.\n'
+                'This prevents the system from killing the app in the background.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showOemScreenshots(context);
+                  },
+                  child: const Text('Show Examples'),
+                ),
+              ],
+            ),
+      );
+      await prefs.setBool('shownLockTipDialog', true);
+    }
+  }
+
+  void _showOemScreenshots(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('How to Lock in Recents'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Xiaomi/MIUI:'),
+                  const SizedBox(height: 8),
+                  Image.asset('assets/images/lock_xiaomi.png', height: 120),
+                  const Text(
+                    'Swipe down on the app in recents, tap the lock icon.',
+                  ),
+                  const Divider(),
+                  const Text('Oppo/Vivo/Realme:'),
+                  const SizedBox(height: 8),
+                  Image.asset('assets/images/lock_oppo.png', height: 120),
+                  const Text(
+                    'Long-press the app in recents, tap the lock or padlock icon.',
+                  ),
+                  const Divider(),
+                  const Text('Samsung/Pixel:'),
+                  const SizedBox(height: 8),
+                  Image.asset('assets/images/lock_samsung.png', height: 120),
+                  const Text(
+                    'No lock needed, but keep battery optimization disabled.',
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
