@@ -4,14 +4,17 @@ import 'package:flutter/material.dart'
         ColorScheme,
         Colors,
         MaterialApp,
+        Brightness,
         StatelessWidget,
         ThemeData,
         Widget,
         WidgetsFlutterBinding,
         debugPrint,
-        runApp;
+        runApp,
+        Builder;
 // runApp is a top-level function and doesn't need to be shown explicitly.
-import 'package:provider/provider.dart' show ChangeNotifierProvider;
+import 'package:provider/provider.dart'
+    show ChangeNotifierProvider, MultiProvider, Provider;
 import 'package:flutter/services.dart' show DeviceOrientation, SystemChrome;
 import 'package:notification_listener_service/notification_listener_service.dart'
     show NotificationListenerService;
@@ -21,6 +24,7 @@ import 'screens/home_screen.dart' show HomeScreen;
 import 'screens/settings_screen.dart' show SettingsScreen;
 import 'screens/dashboard_screen.dart' show DashboardScreen;
 import 'screens/app_management_screen.dart' show AppManagementScreen;
+import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,20 +54,38 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => NotificationProvider(),
-      child: MaterialApp(
-        title: 'Notification Hub',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
-        ),
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const HomeScreen(),
-          '/settings': (context) => const SettingsScreen(),
-          '/dashboard': (context) => const DashboardScreen(),
-          '/apps': (context) => const AppManagementScreen(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: Builder(
+        builder: (context) {
+          final themeProvider = Provider.of<ThemeProvider>(context);
+          return MaterialApp(
+            title: 'Notification Hub',
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+              useMaterial3: true,
+              brightness: Brightness.light,
+            ),
+            darkTheme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.deepPurple,
+                brightness: Brightness.dark,
+              ),
+              useMaterial3: true,
+              brightness: Brightness.dark,
+            ),
+            themeMode: themeProvider.themeMode,
+            initialRoute: '/',
+            routes: {
+              '/': (context) => const HomeScreen(),
+              '/settings': (context) => const SettingsScreen(),
+              '/dashboard': (context) => const DashboardScreen(),
+              '/apps': (context) => const AppManagementScreen(),
+            },
+          );
         },
       ),
     );

@@ -36,7 +36,8 @@ import 'package:flutter/material.dart'
         SwitchListTile,
         Column,
         CrossAxisAlignment,
-        Image;
+        Image,
+        ThemeMode;
 import 'package:provider/provider.dart' show Consumer;
 import 'package:notification_listener_service/notification_listener_service.dart'
     show NotificationListenerService;
@@ -44,6 +45,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/notification_provider.dart' show NotificationProvider;
 import '../services/notification_service.dart' show NotificationService;
+import '../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -173,6 +175,38 @@ class SettingsScreenState extends State<SettingsScreen> {
         builder: (context, provider, child) {
           return ListView(
             children: [
+              // Theme Mode Setting
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, _) {
+                  return ListTile(
+                    title: const Text('Theme'),
+                    subtitle: Text(_themeModeLabel(themeProvider.themeMode)),
+                    trailing: DropdownButton<ThemeMode>(
+                      value: themeProvider.themeMode,
+                      items: const [
+                        DropdownMenuItem(
+                          value: ThemeMode.system,
+                          child: Text('System'),
+                        ),
+                        DropdownMenuItem(
+                          value: ThemeMode.light,
+                          child: Text('Light'),
+                        ),
+                        DropdownMenuItem(
+                          value: ThemeMode.dark,
+                          child: Text('Dark'),
+                        ),
+                      ],
+                      onChanged: (mode) {
+                        if (mode != null) {
+                          themeProvider.setThemeMode(mode);
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
               // Notification Listener Permission
               FutureBuilder<bool>(
                 future: NotificationListenerService.isPermissionGranted(),
@@ -500,5 +534,16 @@ class SettingsScreenState extends State<SettingsScreen> {
     final parts = packageName.split('.');
     if (parts.isEmpty) return 'Unknown';
     return parts.last[0].toUpperCase() + parts.last.substring(1);
+  }
+
+  String _themeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+        return 'System';
+    }
   }
 }
