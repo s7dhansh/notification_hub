@@ -72,6 +72,7 @@ class NotificationProvider with ChangeNotifier {
     debugPrint(
       'NotificationProvider: Loaded ${dbNotifs.length} notifications from database.',
     );
+    _updatePersistentSummaryNotification();
     notifyListeners();
   }
 
@@ -140,6 +141,7 @@ class NotificationProvider with ChangeNotifier {
       debugPrint(
         'Provider notifications list now has \\${_notifications.length} items',
       );
+      _updatePersistentSummaryNotification();
       notifyListeners();
     });
   }
@@ -457,6 +459,20 @@ class NotificationProvider with ChangeNotifier {
       iconData: Value(notification.iconData),
       isRemoved: Value(notification.isRemoved),
       key: Value(notification.key),
+    );
+  }
+
+  void _updatePersistentSummaryNotification() {
+    // Count unique apps with notifications
+    final appSet = <String>{};
+    for (final n in _notifications) {
+      if (!n.isRemoved) appSet.add(n.packageName);
+    }
+    final appCount = appSet.length;
+    final notifCount = _notifications.where((n) => !n.isRemoved).length;
+    NotificationService().showPersistentSummaryNotification(
+      appCount: appCount,
+      notifCount: notifCount,
     );
   }
 

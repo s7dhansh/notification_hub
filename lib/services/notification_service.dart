@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart' show debugPrint;
 import 'package:flutter/services.dart'
     show MethodChannel, PlatformException, MethodCall;
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/notification_model.dart';
@@ -14,7 +14,9 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  // final _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  bool _localNotificationsInitialized = false;
 
   final _notificationsStreamController =
       StreamController<AppNotification>.broadcast();
@@ -60,6 +62,17 @@ class NotificationService {
     debugPrint(
       'NotificationService: Initialized. Excluded apps loaded: $_excludedApps',
     );
+    await _initializeLocalNotifications();
+  }
+
+  Future<void> _initializeLocalNotifications() async {
+    if (_localNotificationsInitialized) return;
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await _localNotificationsPlugin.initialize(initializationSettings);
+    _localNotificationsInitialized = true;
   }
 
   // Start listening to platform notifications
@@ -221,7 +234,7 @@ class NotificationService {
         _excludedApps = _defaultExcludedApps.toSet();
         await prefs.setStringList(_excludedAppsKey, _defaultExcludedApps);
         debugPrint(
-          'NotificationService: Set default excluded apps: \\$_excludedApps',
+          'NotificationService: Set default excluded apps: $_excludedApps',
         );
       } else {
         _excludedApps = loaded;
@@ -355,6 +368,42 @@ class NotificationService {
     } catch (e) {
       debugPrint('NotificationService: Failed to remove notification: \\$e');
     }
+  }
+
+  Future<void> showPersistentSummaryNotification({
+    required int appCount,
+    required int notifCount,
+  }) async {
+    await _initializeLocalNotifications();
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+          'summary_channel',
+          'Notification Summary',
+          channelDescription: 'Shows a persistent summary of notifications',
+          importance: Importance.low,
+          priority: Priority.low,
+          ongoing: true,
+          onlyAlertOnce: true,
+          showWhen: false,
+          playSound: false,
+          enableVibration: false,
+          autoCancel: false,
+        );
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+    await _localNotificationsPlugin.show(
+      9999, // Arbitrary id for summary notification
+      'Notification Hub',
+      '$appCount app${appCount == 1 ? '' : 's'} with $notifCount notification${notifCount == 1 ? '' : 's'}',
+      platformChannelSpecifics,
+      payload: null,
+    );
+  }
+
+  Future<void> cancelPersistentSummaryNotification() async {
+    await _initializeLocalNotifications();
+    await _localNotificationsPlugin.cancel(9999);
   }
 }
 
