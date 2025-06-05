@@ -76,6 +76,7 @@ flutter:
     - assets/images/lock_xiaomi.png
     - assets/images/lock_oppo.png
     - assets/images/lock_samsung.png
+    - shorebird.yaml
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

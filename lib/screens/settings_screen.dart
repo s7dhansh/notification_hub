@@ -207,6 +207,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               const Divider(),
+
               // Notification Listener Permission
               FutureBuilder<bool>(
                 future: NotificationListenerService.isPermissionGranted(),
@@ -242,6 +243,25 @@ class SettingsScreenState extends State<SettingsScreen> {
                           );
                         }
                       }
+                    },
+                  );
+                },
+              ),
+              Consumer<NotificationProvider>(
+                builder: (context, provider, _) {
+                  final notificationService = provider.notificationService;
+                  return SwitchListTile(
+                    title: const Text(
+                      'Remove from app if source app removes notification',
+                    ),
+                    subtitle: const Text(
+                      'If enabled, notifications will be removed from this app if the original app removes them.',
+                    ),
+                    value: notificationService.removeIfSourceAppRemoves,
+                    onChanged: (value) async {
+                      await notificationService.setRemoveIfSourceAppRemoves(
+                        value,
+                      );
                     },
                   );
                 },
@@ -289,7 +309,6 @@ class SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
               ),
-              const Divider(),
 
               // System Tray Removal Toggle
               SwitchListTile(
@@ -308,7 +327,6 @@ class SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
-              const Divider(),
 
               // Battery Optimization Tip
               ListTile(
@@ -320,6 +338,37 @@ class SettingsScreenState extends State<SettingsScreen> {
                   'This prevents the system from killing the app in the background.',
                 ),
               ),
+              FutureBuilder<int>(
+                future: _loadHistoryDays(),
+                builder: (context, snapshot) {
+                  int currentDays =
+                      snapshot.data ?? 7; // Default to 7 if no data
+                  return ListTile(
+                    // Wrap in ListTile for consistent padding/style
+                    title: const Text('Keep History For'),
+                    trailing: DropdownButton<int>(
+                      value: currentDays,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('1 Day')),
+                        DropdownMenuItem(value: 3, child: Text('3 Days')),
+                        DropdownMenuItem(value: 7, child: Text('7 Days')),
+                        DropdownMenuItem(value: 14, child: Text('14 Days')),
+                        DropdownMenuItem(value: 30, child: Text('30 Days')),
+                        DropdownMenuItem(value: 0, child: Text('Forever')),
+                      ],
+                      onChanged: (int? newValue) async {
+                        if (newValue != null) {
+                          await _saveHistoryDays(newValue);
+                          // Optionally notify provider to reload history with new setting
+                          provider
+                              .loadHistory(); // Assuming loadHistory handles the setting
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
 
               // App Management
               ListTile(
@@ -328,65 +377,6 @@ class SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.pushNamed(context, '/apps'),
               ),
-
-              const Divider(),
-
-              ListTile(
-                title: const Text('About'),
-                subtitle: const Text(
-                  'Notification Hub captures and organizes your notifications',
-                ),
-                onTap: () {
-                  showAboutDialog(
-                    context: context,
-                    applicationName: 'Notification Hub',
-                    applicationVersion: '1.0.0',
-                    applicationLegalese: '© 2023',
-                    children: const [
-                      SizedBox(height: 24),
-                      Text(
-                        'This app captures notifications from your device and hides them from the system. '
-                        'Notifications will only appear in this app, grouped by individual apps.',
-                      ),
-                    ],
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Privacy Policy'),
-                subtitle: const Text('How we handle your data'),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder:
-                        (context) => AlertDialog(
-                          title: const Text('Privacy Policy'),
-                          content: const SingleChildScrollView(
-                            child: Text(
-                              'Notification Hub captures your notifications to display them within the app. '
-                              'No notification data is sent outside of your device. All data is stored locally '
-                              'and is automatically cleared after a certain period to save space. '
-                              '\n\nWe do not collect analytics or telemetry data.',
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Close'),
-                            ),
-                          ],
-                        ),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Clear All Data'),
-                subtitle: const Text('Remove all stored notifications'),
-                onTap: () {
-                  _confirmClearData(context, provider);
-                },
-              ),
-              const Divider(),
               FutureBuilder<Set<String>>(
                 future: provider.getExcludedApps(),
                 builder: (context, snapshot) {
@@ -462,36 +452,65 @@ class SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
-              FutureBuilder<int>(
-                future: _loadHistoryDays(),
-                builder: (context, snapshot) {
-                  int currentDays =
-                      snapshot.data ?? 7; // Default to 7 if no data
-                  return ListTile(
-                    // Wrap in ListTile for consistent padding/style
-                    title: const Text('Keep History For'),
-                    trailing: DropdownButton<int>(
-                      value: currentDays,
-                      items: const [
-                        DropdownMenuItem(value: 1, child: Text('1 Day')),
-                        DropdownMenuItem(value: 3, child: Text('3 Days')),
-                        DropdownMenuItem(value: 7, child: Text('7 Days')),
-                        DropdownMenuItem(value: 14, child: Text('14 Days')),
-                        DropdownMenuItem(value: 30, child: Text('30 Days')),
-                        DropdownMenuItem(value: 0, child: Text('Forever')),
-                      ],
-                      onChanged: (int? newValue) async {
-                        if (newValue != null) {
-                          await _saveHistoryDays(newValue);
-                          // Optionally notify provider to reload history with new setting
-                          provider
-                              .loadHistory(); // Assuming loadHistory handles the setting
-                        }
-                      },
-                    ),
+
+              const Divider(),
+
+              ListTile(
+                title: const Text('About'),
+                subtitle: const Text(
+                  'Notification Hub captures and organizes your notifications',
+                ),
+                onTap: () {
+                  showAboutDialog(
+                    context: context,
+                    applicationName: 'Notification Hub',
+                    applicationVersion: '1.0.0',
+                    applicationLegalese: '© 2023',
+                    children: const [
+                      SizedBox(height: 24),
+                      Text(
+                        'This app captures notifications from your device and hides them from the system. '
+                        'Notifications will only appear in this app, grouped by individual apps.',
+                      ),
+                    ],
                   );
                 },
               ),
+              ListTile(
+                title: const Text('Privacy Policy'),
+                subtitle: const Text('How we handle your data'),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder:
+                        (context) => AlertDialog(
+                          title: const Text('Privacy Policy'),
+                          content: const SingleChildScrollView(
+                            child: Text(
+                              'Notification Hub captures your notifications to display them within the app. '
+                              'No notification data is sent outside of your device. All data is stored locally '
+                              'and is automatically cleared after a certain period to save space. '
+                              '\n\nWe do not collect analytics or telemetry data.',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                  );
+                },
+              ),
+              ListTile(
+                title: const Text('Clear All Data'),
+                subtitle: const Text('Remove all stored notifications'),
+                onTap: () {
+                  _confirmClearData(context, provider);
+                },
+              ),
+              const Divider(),
             ],
           );
         },

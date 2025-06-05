@@ -32,6 +32,7 @@ class NotificationProvider with ChangeNotifier {
   List<AppNotification> get notificationHistory => _notificationHistory;
   bool get isListening => _notificationService.isListening;
   bool get isInitialized => _isInitialized;
+  NotificationService get notificationService => _notificationService;
 
   bool _isLoadingMore = false;
   bool _hasMoreData = true; // Assuming initially there's more data to load
@@ -115,14 +116,20 @@ class NotificationProvider with ChangeNotifier {
         // Find the notification by id
         final idx = _notifications.indexWhere((n) => n.id == notification.id);
         if (idx != -1) {
-          final removedNotif = _notifications[idx].copyWith(isRemoved: true);
-          await addToHistory(removedNotif);
-          await _db.deleteNotification(removedNotif.id);
-          _notifications.removeAt(idx);
-          debugPrint(
-            'NotificationProvider: Notification \\${removedNotif.id} deleted from active database.',
-          );
-          notifyListeners();
+          if (NotificationService().removeIfSourceAppRemoves) {
+            final removedNotif = _notifications[idx].copyWith(isRemoved: true);
+            await addToHistory(removedNotif);
+            await _db.deleteNotification(removedNotif.id);
+            _notifications.removeAt(idx);
+            debugPrint(
+              'NotificationProvider: Notification \\${removedNotif.id} deleted from active database due to source app removal.',
+            );
+            notifyListeners();
+          } else {
+            debugPrint(
+              'NotificationProvider: Source app removed notification, but setting is off. Keeping in app.',
+            );
+          }
         }
       } else {
         // Deduplicate by ID

@@ -49,6 +49,17 @@ class NotificationService {
   bool _removeSystemTrayNotification = true;
   bool get removeSystemTrayNotification => _removeSystemTrayNotification;
 
+  // New setting: remove notification from app if source app removes it
+  static const String _removeIfSourceAppRemovesKey = 'removeIfSourceAppRemoves';
+  bool _removeIfSourceAppRemoves = false;
+  bool get removeIfSourceAppRemoves => _removeIfSourceAppRemoves;
+
+  Future<void> setRemoveIfSourceAppRemoves(bool value) async {
+    _removeIfSourceAppRemoves = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_removeIfSourceAppRemovesKey, value);
+  }
+
   // Initialize notification service
   Future<void> initialize() async {
     debugPrint('NotificationService: Initializing...');
@@ -57,6 +68,8 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     _removeSystemTrayNotification =
         prefs.getBool('removeSystemTrayNotification') ?? true;
+    _removeIfSourceAppRemoves =
+        prefs.getBool(_removeIfSourceAppRemovesKey) ?? false;
     // Sync the setting to the Android service on app start
     await updateRemoveSystemTraySetting(_removeSystemTrayNotification);
     debugPrint(
