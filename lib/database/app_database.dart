@@ -17,6 +17,8 @@ class Notifications extends Table {
   TextColumn get iconData => text().nullable()();
   BoolColumn get isRemoved => boolean().withDefault(const Constant(false))();
   TextColumn get key => text().nullable()();
+  BoolColumn get hasContentIntent =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -32,6 +34,8 @@ class NotificationHistory extends Table {
   TextColumn get iconData => text().nullable()();
   BoolColumn get isRemoved => boolean().withDefault(const Constant(false))();
   TextColumn get key => text().nullable()();
+  BoolColumn get hasContentIntent =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -42,7 +46,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -58,6 +62,20 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(
           notificationHistory,
           notificationHistory.$columns.firstWhere((c) => c.name == 'key'),
+        );
+      }
+      if (from < 3) {
+        await m.addColumn(
+          notifications,
+          notifications.$columns.firstWhere(
+            (c) => c.name == 'hasContentIntent',
+          ),
+        );
+        await m.addColumn(
+          notificationHistory,
+          notificationHistory.$columns.firstWhere(
+            (c) => c.name == 'hasContentIntent',
+          ),
         );
       }
     },

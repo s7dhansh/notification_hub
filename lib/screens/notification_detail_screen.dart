@@ -21,11 +21,18 @@ import 'package:flutter/material.dart'
         Text,
         TextStyle,
         Theme,
-        Widget;
+        Widget,
+        FloatingActionButton,
+        Icon,
+        Icons,
+        ScaffoldMessenger,
+        SnackBar;
 import 'package:intl/intl.dart' show DateFormat;
+import 'package:provider/provider.dart' show Provider;
 import 'dart:convert' show base64Decode;
 
 import '../models/notification_model.dart' show AppNotification;
+import '../providers/notification_provider.dart' show NotificationProvider;
 
 class NotificationDetailScreen extends StatelessWidget {
   final AppNotification notification;
@@ -38,6 +45,42 @@ class NotificationDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text('Notification from ${notification.appName}')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final provider = Provider.of<NotificationProvider>(
+            context,
+            listen: false,
+          );
+
+          bool success = false;
+
+          // If the notification has a content intent, execute it; otherwise launch the app
+          if (notification.hasContentIntent && notification.key != null) {
+            success = await provider.executeNotificationAction(
+              notification.key,
+            );
+          } else {
+            success = await provider.launchApp(notification.packageName);
+          }
+
+          if (!success && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not open ${notification.appName}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+        icon: Icon(
+          notification.hasContentIntent ? Icons.open_in_new : Icons.launch,
+        ),
+        label: Text(
+          notification.hasContentIntent
+              ? 'Open Content'
+              : 'Open ${notification.appName}',
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(

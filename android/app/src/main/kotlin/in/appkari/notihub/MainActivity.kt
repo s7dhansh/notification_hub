@@ -16,10 +16,12 @@ import android.app.NotificationChannel
 import android.content.pm.PackageManager
 import android.util.Log
 import java.util.Random
+import android.app.PendingIntent
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "notification_capture"
     private val NOTIFICATION_LISTENER_SETTINGS = "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"
+    private val POST_NOTIFICATIONS_REQUEST_CODE = 1001
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -77,8 +79,13 @@ class MainActivity : FlutterActivity() {
                 "sendTestNotification" -> {
                     val title = call.argument<String>("title") ?: "Test Notification"
                     val body = call.argument<String>("body") ?: "This is a test notification"
-                    sendTestNotification(title, body)
-                    result.success(true)
+                    try {
+                        val success = sendTestNotification(title, body)
+                        result.success(success)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error sending test notification: ${e.message}")
+                        result.error("NOTIFICATION_ERROR", e.message, null)
+                    }
                 }
                 "clearAllNotifications" -> {
                     NotiHubNotificationService.clearAllNotifications()
@@ -91,6 +98,24 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     } else {
                         result.error("INVALID_KEY", "Key is null", null)
+                    }
+                }
+                "launchApp" -> {
+                    val packageName = call.argument<String>("packageName")
+                    if (packageName != null) {
+                        val success = launchApp(packageName)
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_PACKAGE", "Package name is null", null)
+                    }
+                }
+                "executeNotificationAction" -> {
+                    val key = call.argument<String>("key")
+                    if (key != null) {
+                        val success = NotiHubNotificationService.executeNotificationAction(key)
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_KEY", "Notification key is null", null)
                     }
                 }
                 else -> {
@@ -121,7 +146,7 @@ class MainActivity : FlutterActivity() {
         // Request POST_NOTIFICATIONS permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), POST_NOTIFICATIONS_REQUEST_CODE)
             }
         }
         // Prompt user to exclude from battery optimizations"
@@ -136,30 +161,153 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun sendTestNotification(title: String, body: String) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            POST_NOTIFICATIONS_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d("MainActivity", "POST_NOTIFICATIONS permission granted")
+                } else {
+                    Log.w("MainActivity", "POST_NOTIFICATIONS permission denied")
+                }
+            }
+        }
+    }
+
+    private fun launchApp(packageName: String): Boolean {
+        Log.d("MainActivity", "=== LAUNCHING APP ===")
+        Log.d("MainActivity", "Package name: $packageName")
+        return try {
+            val packageManager = packageManager
+            val intent = packageManager.getLaunchIntentForPackage(packageName)
+            Log.d("MainActivity", "Launch intent found: ${intent != null}")
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                Log.d("MainActivity", "Starting activity with intent: $intent")
+                startActivity(intent)
+                Log.d("MainActivity", "Successfully launched app: $packageName")
+                true
+            } else {
+                Log.w("MainActivity", "No launch intent found for package: $packageName")
+                // Try alternative method - check if app is installed
+                try {
+                    packageManager.getApplicationInfo(packageName, 0)
+                    Log.w("MainActivity", "App $packageName is installed but has no launch intent")
+                } catch (e: Exception) {
+                    Log.w("MainActivity", "App $packageName is not installed")
+                }
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to launch app $packageName: ${e.message}")
+            Log.e("MainActivity", "Exception details: ${e.stackTraceToString()}")
+            false
+        }
+    }
+
+    private fun sendTestNotification(title: String, body: String): Boolean {
+        Log.d("MainActivity", "=== SENDING TEST NOTIFICATION ===")
+        Log.d("MainActivity", "Title: $title")
+        Log.d("MainActivity", "Body: $body")
+        
+        // Check POST_NOTIFICATIONS permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-            Log.d("MainActivity", "POST_NOTIFICATIONS granted: $granted")
+            Log.d("MainActivity", "POST_NOTIFICATIONS permission granted: $granted")
+            if (!granted) {
+                Log.e("MainActivity", "POST_NOTIFICATIONS permission not granted - cannot send notification")
+                throw SecurityException("POST_NOTIFICATIONS permission not granted")
+            }
         }
-        Log.d("MainActivity", "Attempting to send test notification")
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "test_channel"
-        val channelName = "Test Channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
-            notificationManager.createNotificationChannel(channel)
+        
+        try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            
+            // Check if notification manager is available
+            if (notificationManager == null) {
+                Log.e("MainActivity", "NotificationManager is null")
+                throw IllegalStateException("NotificationManager not available")
+            }
+            
+            val channelId = "test_channel"
+            val channelName = "Test Channel"
+            
+            // Create notification channel for Android 8.0+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val existingChannel = notificationManager.getNotificationChannel(channelId)
+                if (existingChannel == null) {
+                    val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH)
+                    channel.description = "Channel for test notifications"
+                    channel.enableLights(true)
+                    channel.enableVibration(true)
+                    notificationManager.createNotificationChannel(channel)
+                    Log.d("MainActivity", "Created notification channel: $channelId")
+                } else {
+                    Log.d("MainActivity", "Notification channel already exists: $channelId")
+                }
+            }
+            
+            // Create PendingIntent to open this app when notification is tapped
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("from_test_notification", true)
+            }
+            val pendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            } else {
+                PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+            }
+            
+            // Build the notification with clear test identifier
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(this, channelId)
+            } else {
+                Notification.Builder(this)
+            }
+            
+            // Ensure title has "Test" in it to pass through the filter
+            val testTitle = if (!title.lowercase().contains("test")) {
+                "Test: $title"
+            } else {
+                title
+            }
+            
+            builder.setContentTitle(testTitle)
+                .setContentText(body)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setAutoCancel(true)
+                .setPriority(Notification.PRIORITY_HIGH)
+                .setCategory(Notification.CATEGORY_MESSAGE) // Mark as a message to distinguish from system notifications
+                .setContentIntent(pendingIntent) // Add tap action to open the app
+            
+            // Set additional properties for better visibility
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                builder.setVisibility(Notification.VISIBILITY_PUBLIC)
+            }
+            
+            // Add extra data to help identify this as a test notification
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                val extras = android.os.Bundle()
+                extras.putString("notification_type", "test")
+                extras.putBoolean("is_test_notification", true)
+                builder.setExtras(extras)
+            }
+            
+            val notification = builder.build()
+            val notificationId = System.currentTimeMillis().toInt() // Use timestamp as ID
+            
+            Log.d("MainActivity", "Attempting to notify with ID: $notificationId")
+            Log.d("MainActivity", "Test notification title: $testTitle")
+            Log.d("MainActivity", "Test notification has PendingIntent: ${pendingIntent != null}")
+            notificationManager.notify(notificationId, notification)
+            Log.d("MainActivity", "=== TEST NOTIFICATION SENT SUCCESSFULLY ===")
+            
+            return true
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to send test notification: ${e.message}")
+            Log.e("MainActivity", "Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
+            throw e
         }
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, channelId)
-        } else {
-            Notification.Builder(this)
-        }
-        builder.setContentTitle(title)
-            .setContentText(body)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setAutoCancel(true)
-        val notificationId = Random().nextInt(100000) // Use a random ID
-        notificationManager.notify(notificationId, builder.build())
-        Log.d("MainActivity", "Notification sent with ID: $notificationId")
     }
 }

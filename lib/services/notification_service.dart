@@ -152,17 +152,56 @@ class NotificationService {
             Map<String, dynamic>.from(notificationData),
           );
 
-          // Self-protection: Never capture our own notifications (CRITICAL!)
+          // Self-protection: Block persistent summary notifications to prevent infinite loop
           if (notification.packageName == 'in.appkari.notihub' ||
               notification.packageName == 'in.appkari.notihub.dev') {
             debugPrint(
-              'NotificationService: Self-notification blocked: ${notification.title}',
+              'NotificationService: Self-notification detected: ${notification.title} | ${notification.body}',
             );
-            return; // Silently ignore our own notifications
+
+            // Allow test notifications (they have specific characteristics)
+            final titleLower = notification.title.toLowerCase();
+            final bodyLower = notification.body.toLowerCase();
+            final isTestNotification =
+                titleLower.contains('test') ||
+                bodyLower.contains('test') ||
+                notification.title == 'Test Notification' ||
+                notification.title.startsWith('Test:');
+
+            // Block persistent summary notifications (they have specific characteristics)
+            final isPersistentSummary =
+                notification.title == 'Notification Hub Summary' ||
+                (notification.title.contains('app') &&
+                    notification.title.contains('notification'));
+
+            debugPrint(
+              'NotificationService: isTestNotification=$isTestNotification, isPersistentSummary=$isPersistentSummary',
+            );
+
+            if (isPersistentSummary) {
+              debugPrint(
+                'NotificationService: Persistent summary notification blocked to prevent infinite loop: ${notification.title}',
+              );
+              return; // Block persistent summary notifications
+            }
+
+            if (!isTestNotification) {
+              debugPrint(
+                'NotificationService: Self-notification blocked (not a test): ${notification.title}',
+              );
+              return; // Block other self-notifications
+            }
+
+            // Allow test notifications to pass through
+            debugPrint(
+              'NotificationService: Test notification allowed: ${notification.title}',
+            );
           }
 
-          // Filter out excluded apps
-          if (!_excludedApps.contains(notification.packageName)) {
+          // Filter out excluded apps (but allow self-notifications that passed the test above)
+          if (!_excludedApps.contains(notification.packageName) ||
+              (notification.packageName == 'in.appkari.notihub' ||
+                  notification.packageName == 'in.appkari.notihub.dev')) {
             debugPrint(
               'NotificationService: Received notification: ${notification.title} from ${notification.packageName}',
             );
@@ -322,16 +361,32 @@ class NotificationService {
     String title = 'Test Notification',
     String body = 'This is a test notification',
   }) async {
+    debugPrint('NotificationService: Attempting to send test notification...');
+    debugPrint('NotificationService: Title: $title, Body: $body');
     try {
-      await _notificationChannel.invokeMethod(
+      final bool? result = await _notificationChannel.invokeMethod(
         'sendTestNotification',
         <String, dynamic>{'title': title, 'body': body},
       );
-      debugPrint('NotificationService: Test notification sent.');
+      if (result == true) {
+        debugPrint('NotificationService: Test notification sent successfully.');
+      } else {
+        debugPrint(
+          'NotificationService: Test notification failed: Method returned false.',
+        );
+        throw Exception('Test notification failed: Method returned false');
+      }
     } on PlatformException catch (e) {
       debugPrint(
         'NotificationService: Failed to send test notification: ${e.message}',
       );
+      debugPrint('NotificationService: Error code: ${e.code}');
+      rethrow;
+    } catch (e) {
+      debugPrint(
+        'NotificationService: Unexpected error sending test notification: $e',
+      );
+      rethrow;
     }
   }
 
@@ -445,6 +500,45 @@ class NotificationService {
   Future<void> cancelPersistentSummaryNotification() async {
     await _initializeLocalNotifications();
     await _localNotificationsPlugin.cancel(9999);
+  }
+
+  // Launch the app that created the notification
+  Future<bool> launchApp(String packageName) async {
+    try {
+      final bool? success = await _notificationChannel.invokeMethod(
+        'launchApp',
+        {'packageName': packageName},
+      );
+      debugPrint(
+        'NotificationService: Launch app $packageName result: $success',
+      );
+      return success ?? false;
+    } on PlatformException catch (e) {
+      debugPrint(
+        'NotificationService: Failed to launch app $packageName: ${e.message}',
+      );
+      return false;
+    }
+  }
+
+  // Execute the original notification action (PendingIntent)
+  Future<bool> executeNotificationAction(String? key) async {
+    if (key == null) return false;
+    try {
+      final bool? success = await _notificationChannel.invokeMethod(
+        'executeNotificationAction',
+        {'key': key},
+      );
+      debugPrint(
+        'NotificationService: Execute notification action $key result: $success',
+      );
+      return success ?? false;
+    } on PlatformException catch (e) {
+      debugPrint(
+        'NotificationService: Failed to execute notification action $key: ${e.message}',
+      );
+      return false;
+    }
   }
 }
 

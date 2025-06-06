@@ -10,6 +10,7 @@ class AppNotification {
   final String? iconData; // Can be a Base64 string representing the app icon
   final bool isRemoved;
   final String? key; // Android notification key for system tray removal
+  final bool hasContentIntent; // Whether the notification has a specific action
 
   AppNotification({
     required this.id,
@@ -21,6 +22,7 @@ class AppNotification {
     this.iconData,
     this.isRemoved = false,
     this.key,
+    this.hasContentIntent = false,
   });
 
   factory AppNotification.fromMap(Map<String, dynamic> map) {
@@ -36,6 +38,7 @@ class AppNotification {
       iconData: map['iconData'],
       isRemoved: map['isRemoved'] ?? false,
       key: map['key'],
+      hasContentIntent: map['hasContentIntent'] ?? false,
     );
   }
 
@@ -50,6 +53,7 @@ class AppNotification {
       'iconData': iconData,
       'isRemoved': isRemoved,
       'key': key,
+      'hasContentIntent': hasContentIntent,
     };
   }
 
@@ -63,6 +67,7 @@ class AppNotification {
     String? iconData,
     bool? isRemoved,
     String? key,
+    bool? hasContentIntent,
   }) {
     return AppNotification(
       id: id ?? this.id,
@@ -74,6 +79,7 @@ class AppNotification {
       iconData: iconData ?? this.iconData,
       isRemoved: isRemoved ?? this.isRemoved,
       key: key ?? this.key,
+      hasContentIntent: hasContentIntent ?? this.hasContentIntent,
     );
   }
 }

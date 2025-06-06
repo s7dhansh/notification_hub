@@ -16,12 +16,23 @@ import 'package:flutter/material.dart'
         MainAxisAlignment,
         CrossAxisAlignment,
         InkWell,
-        TextStyle;
+        TextStyle,
+        ScaffoldMessenger,
+        SnackBar,
+        Icon,
+        Icons,
+        SizedBox,
+        SnackBarBehavior,
+        SnackBarAction,
+        Colors,
+        debugPrint;
 import 'package:intl/intl.dart' show DateFormat;
+import 'package:provider/provider.dart' show Provider;
 
 import '../../models/notification_model.dart' show AppNotification;
 import '../../screens/notification_detail_screen.dart'
     show NotificationDetailScreen;
+import '../../providers/notification_provider.dart' show NotificationProvider;
 
 class NotificationItemWidget extends StatelessWidget {
   final AppNotification notification;
@@ -52,7 +63,77 @@ class NotificationItemWidget extends StatelessWidget {
     }
 
     return InkWell(
-      onTap: () {
+      onTap: () async {
+        final provider = Provider.of<NotificationProvider>(
+          context,
+          listen: false,
+        );
+
+        bool success = false;
+
+        // Try to execute the original notification action first
+        if (notification.hasContentIntent && notification.key != null) {
+          debugPrint(
+            'Attempting to execute notification action for ${notification.key}',
+          );
+          success = await provider.executeNotificationAction(notification.key);
+          debugPrint('Notification action result: $success');
+        }
+
+        // If that failed or wasn't available, try to launch the app
+        if (!success) {
+          debugPrint('Attempting to launch app: ${notification.packageName}');
+          success = await provider.launchApp(notification.packageName);
+          debugPrint('App launch result: $success');
+        }
+
+        // Show user feedback
+        if (context.mounted) {
+          if (success) {
+            // Optional: Show brief success feedback
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Opened ${notification.appName}'),
+                duration: const Duration(seconds: 1),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } else {
+            // Show error feedback
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not open ${notification.appName}'),
+                duration: const Duration(seconds: 2),
+                backgroundColor: Colors.red[300],
+                action: SnackBarAction(
+                  label: 'Try Again',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    // Try launching the app directly as a last resort
+                    final retrySuccess = await provider.launchApp(
+                      notification.packageName,
+                    );
+                    if (!retrySuccess && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${notification.appName} could not be opened. It may have been uninstalled.',
+                          ),
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      },
+      onLongPress: () {
+        // Long press shows the notification detail screen
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -84,12 +165,24 @@ class NotificationItemWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                Text(
-                  timeText,
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                    fontSize: 12,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      notification.hasContentIntent
+                          ? Icons.open_in_new
+                          : Icons.launch,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      timeText,
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

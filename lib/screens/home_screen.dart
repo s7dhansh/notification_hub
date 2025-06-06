@@ -1,22 +1,37 @@
 import 'package:flutter/material.dart'
     show
         AlertDialog,
+        AlwaysStoppedAnimation,
         AppBar,
+        BorderRadius,
+        BorderSide,
         BuildContext,
         Builder,
+        CircularProgressIndicator,
+        Color,
+        Colors,
+        EdgeInsets,
+        Expanded,
         FloatingActionButton,
+        FontWeight,
         Icon,
         IconButton,
         Icons,
         MaterialPageRoute,
         Navigator,
+        RoundedRectangleBorder,
+        Row,
         Scaffold,
         ScaffoldMessenger,
+        SizedBox,
         SnackBar,
+        SnackBarAction,
+        SnackBarBehavior,
         State,
         StatefulWidget,
         Text,
         TextButton,
+        TextStyle,
         Widget,
         debugPrint,
         showDialog;
@@ -145,21 +160,147 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.notifications_active),
               label: const Text('Send Test Notification'),
               onPressed: () async {
-                await Provider.of<NotificationProvider>(
-                  context,
-                  listen: false,
-                ).sendTestNotification(
-                  title: 'Test Notification',
-                  body:
-                      'This is a test notification sent from Notification Hub',
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Test notification sent'),
-                      duration: Duration(seconds: 2),
+                // Show loading indicator
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.blue[800]!,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Sending test notification...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    duration: const Duration(seconds: 1),
+                    backgroundColor: Colors.blue[50],
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: Colors.blue[200]!, width: 1),
+                    ),
+                    margin: const EdgeInsets.all(16),
+                    elevation: 2,
+                  ),
+                );
+
+                try {
+                  await Provider.of<NotificationProvider>(
+                    context,
+                    listen: false,
+                  ).sendTestNotification(
+                    title: 'Test Notification',
+                    body:
+                        'This is a test notification sent from Notification Hub',
                   );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              color: Colors.green[800],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Test notification sent successfully!',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        duration: const Duration(seconds: 3),
+                        backgroundColor: Colors.green[50],
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.green[200]!, width: 1),
+                        ),
+                        margin: const EdgeInsets.all(16),
+                        elevation: 2,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    String errorMessage = 'Failed to send test notification';
+
+                    // Provide more specific error messages
+                    if (e.toString().contains('POST_NOTIFICATIONS')) {
+                      errorMessage =
+                          'Please grant notification permission in Settings';
+                    } else if (e.toString().contains('permission')) {
+                      errorMessage = 'Notification permission required';
+                    } else if (e.toString().contains('SecurityException')) {
+                      errorMessage = 'Permission denied - check app settings';
+                    } else {
+                      errorMessage = 'Error: ${e.toString()}';
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red[800],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                errorMessage,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        duration: const Duration(seconds: 5),
+                        backgroundColor: Colors.red[50],
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.red[200]!, width: 1),
+                        ),
+                        margin: const EdgeInsets.all(16),
+                        elevation: 2,
+                        action: SnackBarAction(
+                          label: 'Settings',
+                          textColor: Colors.red[800],
+                          onPressed: () {
+                            // Try to open app settings
+                            debugPrint(
+                              'Opening app settings for notification permission',
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  }
                 }
               },
             ),

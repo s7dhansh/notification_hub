@@ -21,6 +21,8 @@ class NotiHubNotificationService : NotificationListenerService() {
         var shouldRemoveSystemTrayNotification: Boolean = false // Default to false (keep)
         var isListening: Boolean = false // Controls forwarding to Flutter
         val programmaticallyRemovedKeys = mutableSetOf<String>()
+        // Store PendingIntents by notification key for later execution
+        private val pendingIntents = mutableMapOf<String, android.app.PendingIntent?>()
 
         fun removeNotificationByKey(key: String) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -33,11 +35,39 @@ class NotiHubNotificationService : NotificationListenerService() {
         fun clearAllNotifications() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 // Add all keys to programmaticallyRemovedKeys before removal
-                instance?.activeNotifications?.forEach { programmaticallyRemovedKeys.add(it.key) }
+                instance?.activeNotifications?.forEach { 
+                    programmaticallyRemovedKeys.add(it.key)
+                    pendingIntents.remove(it.key) // Clean up stored PendingIntents
+                }
                 instance?.cancelAllNotifications()
             } else {
-                instance?.activeNotifications?.forEach { programmaticallyRemovedKeys.add(it.key) }
+                instance?.activeNotifications?.forEach { 
+                    programmaticallyRemovedKeys.add(it.key)
+                    pendingIntents.remove(it.key) // Clean up stored PendingIntents
+                }
                 instance?.activeNotifications?.forEach { instance?.cancelNotification(it.key) }
+            }
+        }
+
+        // Execute the original notification's PendingIntent
+        fun executeNotificationAction(key: String): Boolean {
+            Log.d("NotiHubService", "Attempting to execute notification action for key: $key")
+            val pendingIntent = pendingIntents[key]
+            return if (pendingIntent != null) {
+                try {
+                    Log.d("NotiHubService", "PendingIntent found, executing...")
+                    pendingIntent.send()
+                    Log.d("NotiHubService", "PendingIntent executed successfully for key: $key")
+                    true
+                } catch (e: Exception) {
+                    Log.e("NotiHubService", "Failed to execute notification action for key $key: ${e.message}")
+                    Log.e("NotiHubService", "Exception details: ${e.stackTraceToString()}")
+                    false
+                }
+            } else {
+                Log.w("NotiHubService", "No PendingIntent found for notification key: $key")
+                Log.d("NotiHubService", "Available keys in pendingIntents: ${pendingIntents.keys}")
+                false
             }
         }
     }
@@ -103,6 +133,10 @@ class NotiHubNotificationService : NotificationListenerService() {
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
         val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         
+        // Store the PendingIntent for later execution
+        val contentIntent = sbn.notification.contentIntent
+        pendingIntents[sbn.key] = contentIntent
+        
         // Get icon as bitmap and convert to base64
         var iconData: String? = null
         try {
@@ -133,7 +167,8 @@ class NotiHubNotificationService : NotificationListenerService() {
             "id" to sbn.id,
             "tag" to sbn.tag,
             "key" to sbn.key,
-            "iconData" to iconData
+            "iconData" to iconData,
+            "hasContentIntent" to (contentIntent != null)
         )
         
         // Add extras as a string representation if available

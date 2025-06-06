@@ -72,28 +72,56 @@ class NotificationProvider with ChangeNotifier {
   // Make method public
   Future<void> loadNotifications() async {
     debugPrint('NotificationProvider: Loading notifications from database...');
-    final dbNotifs = await _db.getAllNotifications();
-    _notifications = dbNotifs.map(_fromDbNotification).toList();
-    debugPrint(
-      'NotificationProvider: Loaded ${dbNotifs.length} notifications from database.',
-    );
+    try {
+      final dbNotifs = await _db.getAllNotifications();
+      _notifications = dbNotifs.map(_fromDbNotification).toList();
+      debugPrint(
+        'NotificationProvider: Loaded ${dbNotifs.length} notifications from database.',
+      );
+    } catch (e) {
+      debugPrint('NotificationProvider: Error loading notifications: $e');
+      // Clear and recreate database on error
+      try {
+        await _db.clearNotifications();
+        _notifications = [];
+        debugPrint('NotificationProvider: Database cleared due to error.');
+      } catch (clearError) {
+        debugPrint(
+          'NotificationProvider: Error clearing database: $clearError',
+        );
+        _notifications = [];
+      }
+    }
     _updatePersistentSummaryNotification();
     notifyListeners();
   }
 
   Future<void> loadHistory() async {
     debugPrint('NotificationProvider: Loading history from database...');
-    final cutoff = DateTime.now().subtract(Duration(days: _historyDays));
-    // Remove old history
-    await _db.deleteHistoryOlderThan(cutoff);
-    _notificationHistory =
-        (await _db.getAllHistory())
-            .where((h) => h.timestamp.isAfter(cutoff))
-            .map(_fromDbNotificationHistory)
-            .toList();
-    debugPrint(
-      'NotificationProvider: Loaded ${_notificationHistory.length} history entries from database.',
-    );
+    try {
+      final cutoff = DateTime.now().subtract(Duration(days: _historyDays));
+      // Remove old history
+      await _db.deleteHistoryOlderThan(cutoff);
+      _notificationHistory =
+          (await _db.getAllHistory())
+              .where((h) => h.timestamp.isAfter(cutoff))
+              .map(_fromDbNotificationHistory)
+              .toList();
+      debugPrint(
+        'NotificationProvider: Loaded ${_notificationHistory.length} history entries from database.',
+      );
+    } catch (e) {
+      debugPrint('NotificationProvider: Error loading history: $e');
+      // Clear history on error
+      try {
+        await _db.clearHistory();
+        _notificationHistory = [];
+        debugPrint('NotificationProvider: History cleared due to error.');
+      } catch (clearError) {
+        debugPrint('NotificationProvider: Error clearing history: $clearError');
+        _notificationHistory = [];
+      }
+    }
     notifyListeners();
   }
 
@@ -396,8 +424,25 @@ class NotificationProvider with ChangeNotifier {
     String title = 'Test Notification',
     String body = 'This is a test notification',
   }) async {
-    await _notificationService.startListening();
-    await _notificationService.sendTestNotification(title: title, body: body);
+    debugPrint('NotificationProvider: Sending test notification...');
+    try {
+      await _notificationService.startListening();
+      await _notificationService.sendTestNotification(title: title, body: body);
+      debugPrint('NotificationProvider: Test notification sent successfully.');
+    } catch (e) {
+      debugPrint('NotificationProvider: Error sending test notification: $e');
+      rethrow;
+    }
+  }
+
+  // Launch the app that created the notification
+  Future<bool> launchApp(String packageName) async {
+    return await _notificationService.launchApp(packageName);
+  }
+
+  // Execute the original notification action
+  Future<bool> executeNotificationAction(String? key) async {
+    return await _notificationService.executeNotificationAction(key);
   }
 
   // Add to notification history
@@ -427,6 +472,8 @@ class NotificationProvider with ChangeNotifier {
         timestamp: Value(notification.timestamp),
         iconData: Value(notification.iconData),
         isRemoved: Value(notification.isRemoved),
+        key: Value(notification.key),
+        hasContentIntent: Value(notification.hasContentIntent),
       ),
     );
     await _db.deleteHistory(notification.id);
@@ -451,6 +498,7 @@ class NotificationProvider with ChangeNotifier {
     iconData: n.iconData,
     isRemoved: n.isRemoved,
     key: n.key,
+    hasContentIntent: n.hasContentIntent,
   );
   AppNotification _fromDbNotificationHistory(NotificationHistoryData n) =>
       AppNotification(
@@ -463,6 +511,7 @@ class NotificationProvider with ChangeNotifier {
         iconData: n.iconData,
         isRemoved: n.isRemoved,
         key: n.key,
+        hasContentIntent: n.hasContentIntent,
       );
 
   // Helper to convert AppNotification to NotificationsCompanion
@@ -477,6 +526,7 @@ class NotificationProvider with ChangeNotifier {
       iconData: Value(notification.iconData),
       isRemoved: Value(notification.isRemoved),
       key: Value(notification.key),
+      hasContentIntent: Value(notification.hasContentIntent),
     );
   }
 
@@ -492,6 +542,7 @@ class NotificationProvider with ChangeNotifier {
       iconData: Value(notification.iconData),
       isRemoved: Value(notification.isRemoved),
       key: Value(notification.key),
+      hasContentIntent: Value(notification.hasContentIntent),
     );
   }
 
