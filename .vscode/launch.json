@@ -5,20 +5,33 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "notihub",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "notihub (profile mode)",
+            "name": "Development",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main_development.dart",
+            "args": ["--flavor", "development"]
+        },
+        {
+            "name": "Production",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main_production.dart",
+            "args": ["--flavor", "production"]
+        },
+        {
+            "name": "Development (Profile)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main_development.dart",
+            "args": ["--flavor", "development"],
             "flutterMode": "profile"
         },
         {
-            "name": "notihub (release mode)",
+            "name": "Production (Release)",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main_production.dart",
+            "args": ["--flavor", "production"],
             "flutterMode": "release"
         }
     ]

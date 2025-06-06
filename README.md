@@ -26,20 +26,7 @@ A centralized Flutter application for capturing, organizing, and managing notifi
    - To ensure reliable background operation, disable battery optimization for Notification Hub
    - Go to Settings > Apps > Notification Hub > Battery > Unrestricted
 
-### iOS Setup
 
-Notification access on iOS is more limited compared to Android due to platform restrictions. However, the app will still function with the following setup:
-
-1. **Enable Notifications**:
-   - Go to Settings > Notifications > Notification Hub
-   - Enable "Allow Notifications"
-   - Turn on all notification types (Sounds, Badges, Banners)
-
-2. **Background App Refresh**:
-   - Go to Settings > General > Background App Refresh
-   - Ensure Notification Hub is enabled
-
-**Note**: On iOS, Notification Hub cannot directly intercept notifications from other apps due to system limitations. It can only receive its own notifications and those that are explicitly shared with it.
 
 ## Usage
 
@@ -65,9 +52,52 @@ This project is built with Flutter and uses:
 - SharedPreferences for local storage
 - Flutter Local Notifications for notification handling
 
+## Development Flavors
+
+This app supports multiple flavors for different environments:
+
+### Available Flavors
+
+- **Development**: For development and testing
+  - App Name: "Notification Hub Dev"
+  - Package ID: `in.appkari.notihub.dev`
+  - Debug mode enabled
+  
+- **Production**: For release builds
+  - App Name: "Notification Hub"
+  - Package ID: `in.appkari.notihub`
+  - Debug mode disabled
+
+### Running Different Flavors
+
+**Using Flutter Command Line:**
+
+```bash
+# Development flavor
+flutter run --flavor development -t lib/main_development.dart
+
+# Production flavor
+flutter run --flavor production -t lib/main_production.dart
+
+# Release build for production
+flutter build apk --flavor production -t lib/main_production.dart
+```
+
+**Using VS Code:**
+
+Use the launch configurations in `.vscode/launch.json`:
+- "Development" - Run development flavor in debug mode
+- "Production" - Run production flavor in debug mode
+- "Development (Profile)" - Run development flavor in profile mode
+- "Production (Release)" - Run production flavor in release mode
+
+### Platform Support
+
+This app is **Android-only**. iOS, Windows, Linux, macOS, and web platforms have been removed to focus exclusively on Android functionality.
+
 ## Getting Started with Development
 
 1. Clone the repository
 2. Run `flutter pub get` to install dependencies
-3. Ensure you have notification permissions enabled on your device
-4. Run the app with `flutter run`
+3. Ensure you have notification permissions enabled on your Android device
+4. Run the app with one of the flavor commands above

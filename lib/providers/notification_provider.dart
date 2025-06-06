@@ -37,6 +37,10 @@ class NotificationProvider with ChangeNotifier {
   bool _isLoadingMore = false;
   bool _hasMoreData = true; // Assuming initially there's more data to load
 
+  // Rate limiting for debug logs
+  DateTime? _lastLogTime;
+  String? _lastLoggedNotificationId;
+
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMoreData => _hasMoreData;
 
@@ -102,9 +106,21 @@ class NotificationProvider with ChangeNotifier {
     _subscription = _notificationService.notificationsStream.listen((
       notification,
     ) async {
-      debugPrint(
-        'Provider received notification: \\${notification.title} from \\${notification.packageName}',
-      );
+      // Rate limiting for debug logs - only log once per second for the same notification
+      final now = DateTime.now();
+      final shouldLog =
+          _lastLogTime == null ||
+          _lastLoggedNotificationId != notification.id ||
+          now.difference(_lastLogTime!).inSeconds >= 1;
+
+      if (shouldLog && notification.title.isNotEmpty) {
+        debugPrint(
+          'Provider received notification: \\${notification.title} from \\${notification.packageName}',
+        );
+        _lastLogTime = now;
+        _lastLoggedNotificationId = notification.id;
+      }
+
       if (notification.iconData != null) {
         await _iconCacheService.cacheIcon(
           notification.packageName,
@@ -116,38 +132,48 @@ class NotificationProvider with ChangeNotifier {
         // Find the notification by id
         final idx = _notifications.indexWhere((n) => n.id == notification.id);
         if (idx != -1) {
-          if (NotificationService().removeIfSourceAppRemoves) {
+          if (_notificationService.removeIfSourceAppRemoves) {
             final removedNotif = _notifications[idx].copyWith(isRemoved: true);
             await addToHistory(removedNotif);
             await _db.deleteNotification(removedNotif.id);
             _notifications.removeAt(idx);
-            debugPrint(
-              'NotificationProvider: Notification \\${removedNotif.id} deleted from active database due to source app removal.',
-            );
+            if (shouldLog) {
+              debugPrint(
+                'NotificationProvider: Notification \\${removedNotif.id} deleted from active database due to source app removal.',
+              );
+            }
             notifyListeners();
           } else {
-            debugPrint(
-              'NotificationProvider: Source app removed notification, but setting is off. Keeping in app.',
-            );
+            if (shouldLog) {
+              debugPrint(
+                'NotificationProvider: Source app removed notification, but setting is off. Keeping in app.',
+              );
+            }
           }
         }
       } else {
         // Deduplicate by ID
         if (!_notifications.any((n) => n.id == notification.id)) {
           _notifications.insert(0, notification);
-          debugPrint(
-            'NotificationProvider: Inserting new notification \\${notification.id} into database...',
-          );
+          if (shouldLog) {
+            debugPrint(
+              'NotificationProvider: Inserting new notification \\${notification.id} into database...',
+            );
+          }
           // Save the new notification to the database
           await _db.insertNotification(_toDbNotification(notification));
-          debugPrint(
-            'NotificationProvider: Notification \\${notification.id} inserted into database.',
-          );
+          if (shouldLog) {
+            debugPrint(
+              'NotificationProvider: Notification \\${notification.id} inserted into database.',
+            );
+          }
         }
       }
-      debugPrint(
-        'Provider notifications list now has \\${_notifications.length} items',
-      );
+      if (shouldLog) {
+        debugPrint(
+          'Provider notifications list now has \\${_notifications.length} items',
+        );
+      }
       _updatePersistentSummaryNotification();
       notifyListeners();
     });

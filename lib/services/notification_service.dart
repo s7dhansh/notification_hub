@@ -33,13 +33,15 @@ class NotificationService {
   // Track programmatic removals
   final Set<String> _programmaticallyRemovedKeys = {};
 
-  // Default excluded app package names (WhatsApp, SMS, call apps)
+  // Default excluded app package names (WhatsApp, SMS, call apps, and self)
   static const List<String> _defaultExcludedApps = [
     'com.whatsapp', // WhatsApp
     'com.google.android.apps.messaging', // Google Messages
     'com.android.mms', // Default SMS/MMS
     'com.android.dialer', // Default Phone/Dialer
     'com.truecaller', // Truecaller (calls/SMS)
+    'in.appkari.notihub', // Production version of this app
+    'in.appkari.notihub.dev', // Development version of this app
   ];
 
   static final MethodChannel _notificationChannel = MethodChannel(
@@ -150,12 +152,20 @@ class NotificationService {
             Map<String, dynamic>.from(notificationData),
           );
 
-          debugPrint(
-            'NotificationService: Received notification: ${notification.title} from ${notification.packageName}',
-          );
+          // Self-protection: Never capture our own notifications (CRITICAL!)
+          if (notification.packageName == 'in.appkari.notihub' ||
+              notification.packageName == 'in.appkari.notihub.dev') {
+            debugPrint(
+              'NotificationService: Self-notification blocked: ${notification.title}',
+            );
+            return; // Silently ignore our own notifications
+          }
 
           // Filter out excluded apps
           if (!_excludedApps.contains(notification.packageName)) {
+            debugPrint(
+              'NotificationService: Received notification: ${notification.title} from ${notification.packageName}',
+            );
             _notificationsStreamController.add(notification);
           } else {
             debugPrint(
@@ -242,7 +252,10 @@ class NotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final loaded = prefs.getStringList(_excludedAppsKey)?.toSet() ?? {};
-      // If exclusion list is empty, populate with defaults
+
+      // Always ensure self packages are excluded (critical for preventing loops)
+      final selfPackages = {'in.appkari.notihub', 'in.appkari.notihub.dev'};
+
       if (loaded.isEmpty) {
         _excludedApps = _defaultExcludedApps.toSet();
         await prefs.setStringList(_excludedAppsKey, _defaultExcludedApps);
@@ -251,9 +264,15 @@ class NotificationService {
         );
       } else {
         _excludedApps = loaded;
+        // Always add self packages even if not in saved preferences
+        _excludedApps.addAll(selfPackages);
+        // Update SharedPreferences to include self packages
+        await prefs.setStringList(_excludedAppsKey, _excludedApps.toList());
       }
     } catch (e) {
       debugPrint('NotificationService: Error loading excluded apps: $e');
+      // Fallback: at minimum exclude self packages
+      _excludedApps = {'in.appkari.notihub', 'in.appkari.notihub.dev'};
     }
   }
 
@@ -267,12 +286,18 @@ class NotificationService {
   }
 
   Future<Set<String>> getExcludedApps() async {
-    await _loadExcludedApps(); // Ensure latest are loaded
+    // Only load if not already loaded or empty
+    if (_excludedApps.isEmpty) {
+      await _loadExcludedApps();
+    }
     return _excludedApps;
   }
 
   Future<bool> isAppExcluded(String packageName) async {
-    await _loadExcludedApps(); // Ensure latest are loaded
+    // Only load if not already loaded or empty
+    if (_excludedApps.isEmpty) {
+      await _loadExcludedApps();
+    }
     return _excludedApps.contains(packageName);
   }
 
@@ -390,24 +415,27 @@ class NotificationService {
     await _initializeLocalNotifications();
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-          'summary_channel',
+          'summary_channel_silent',
           'Notification Summary',
           channelDescription: 'Shows a persistent summary of notifications',
-          importance: Importance.low,
-          priority: Priority.low,
+          importance:
+              Importance.min, // Minimize importance to reduce interference
+          priority: Priority.min,
           ongoing: true,
           onlyAlertOnce: true,
           showWhen: false,
           playSound: false,
           enableVibration: false,
           autoCancel: false,
+          silent: true, // Make it completely silent
+          category: AndroidNotificationCategory.status,
         );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );
     await _localNotificationsPlugin.show(
       9999, // Arbitrary id for summary notification
-      'Notification Hub',
+      'Notification Hub Summary',
       '$appCount app${appCount == 1 ? '' : 's'} with $notifCount notification${notifCount == 1 ? '' : 's'}',
       platformChannelSpecifics,
       payload: null,

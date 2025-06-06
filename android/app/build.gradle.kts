@@ -41,6 +41,19 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "default"
+    productFlavors {
+        create("development") {
+            dimension = "default"
+            resValue("string", "app_name", "Notification Hub Dev")
+            applicationIdSuffix = ".dev"
+        }
+        create("production") {
+            dimension = "default"
+            resValue("string", "app_name", "Notification Hub")
+        }
+    }
+
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String

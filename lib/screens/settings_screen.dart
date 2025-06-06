@@ -426,24 +426,16 @@ class SettingsScreenState extends State<SettingsScreen> {
                             child: ListTile(
                               title: Text(appName),
                               subtitle: Text(packageName),
-                              trailing: Consumer<NotificationProvider>(
-                                builder: (context, provider, child) {
-                                  final isExcluded = provider.notifications.any(
-                                    (n) => n.packageName == packageName,
-                                  );
-                                  return Switch(
-                                    value: !isExcluded,
-                                    onChanged: (value) async {
-                                      if (value) {
-                                        await provider.includeApp(packageName);
-                                      } else {
-                                        await provider.excludeApp(packageName);
-                                      }
-                                      if (context.mounted) {
-                                        Navigator.of(context).pop();
-                                      }
-                                    },
-                                  );
+                              trailing: Switch(
+                                value:
+                                    false, // Always false since this is the excluded apps list
+                                onChanged: (value) async {
+                                  if (value) {
+                                    // Include the app (remove from excluded list)
+                                    await provider.includeApp(packageName);
+                                    // Force the UI to rebuild by triggering setState
+                                    setState(() {});
+                                  }
                                 },
                               ),
                             ),

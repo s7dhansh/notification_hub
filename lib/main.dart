@@ -25,6 +25,7 @@ import 'screens/settings_screen.dart' show SettingsScreen;
 import 'screens/dashboard_screen.dart' show DashboardScreen;
 import 'screens/app_management_screen.dart' show AppManagementScreen;
 import 'providers/theme_provider.dart';
+import 'flavors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,7 +64,7 @@ class MyApp extends StatelessWidget {
         builder: (context) {
           final themeProvider = Provider.of<ThemeProvider>(context);
           return MaterialApp(
-            title: 'Notification Hub',
+            title: FlavorConfig.title,
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
               useMaterial3: true,
