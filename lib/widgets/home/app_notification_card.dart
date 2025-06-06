@@ -150,8 +150,14 @@ class AppNotificationCardState extends State<AppNotificationCard> {
 
     return Dismissible(
       key: ValueKey(widget.packageName),
-      direction: DismissDirection.endToStart,
+      direction: DismissDirection.horizontal,
       background: Container(
+        color: Colors.redAccent,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24.0),
+        child: const Icon(Icons.delete, color: Colors.white, size: 32),
+      ),
+      secondaryBackground: Container(
         color: Colors.redAccent,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24.0),
@@ -233,6 +239,24 @@ class AppNotificationCardState extends State<AppNotificationCard> {
                         ),
                       ),
                     ),
+                    onTap: () async {
+                      final provider = Provider.of<NotificationProvider>(
+                        context,
+                        listen: false,
+                      );
+                      final success = await provider.launchApp(
+                        widget.packageName,
+                      );
+                      if (!success) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Could not launch $appName'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
                     onLongPress: () {
                       _showExcludeAppDialog(widget.packageName);
                     },
