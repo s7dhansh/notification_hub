@@ -20,10 +20,12 @@ import 'package:notification_listener_service/notification_listener_service.dart
     show NotificationListenerService;
 
 import 'providers/notification_provider.dart' show NotificationProvider;
+import 'providers/subscription_provider.dart' show SubscriptionProvider;
 import 'screens/home_screen.dart' show HomeScreen;
 import 'screens/settings_screen.dart' show SettingsScreen;
 import 'screens/dashboard_screen.dart' show DashboardScreen;
 import 'screens/app_management_screen.dart' show AppManagementScreen;
+import 'screens/subscription_screen.dart' show SubscriptionScreen;
 import 'providers/theme_provider.dart';
 import 'flavors.dart';
 
@@ -59,6 +61,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
       child: Builder(
         builder: (context) {
@@ -85,6 +88,7 @@ class MyApp extends StatelessWidget {
               '/settings': (context) => const SettingsScreen(),
               '/dashboard': (context) => const DashboardScreen(),
               '/apps': (context) => const AppManagementScreen(),
+              '/subscription': (context) => const SubscriptionScreen(),
             },
           );
         },

@@ -32,13 +32,17 @@ import 'package:flutter/material.dart'
         showDialog,
         Dismissible,
         DismissDirection,
-        Alignment;
-import 'package:provider/provider.dart' show Provider;
+        Alignment,
+        Row,
+        MainAxisSize,
+        SizedBox;
+import 'package:provider/provider.dart' show Provider, Consumer;
 import 'package:flutter/foundation.dart' show Uint8List, VoidCallback;
 import 'dart:convert' show base64Decode;
 
 import '../../models/notification_model.dart' show AppNotification;
 import '../../providers/notification_provider.dart' show NotificationProvider;
+import '../../providers/subscription_provider.dart' show SubscriptionProvider;
 import '../../services/icon_cache_service.dart' show IconCacheService;
 import 'notification_item.dart' show DismissibleNotificationItem;
 
@@ -222,22 +226,49 @@ class AppNotificationCardState extends State<AppNotificationCard> {
                         fontSize: 18,
                       ),
                     ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.deepPurple.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${widget.appNotifications.length}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple,
-                        ),
-                      ),
+                    trailing: Consumer<SubscriptionProvider>(
+                      builder: (context, subscriptionProvider, _) {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (subscriptionProvider.isPremium) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.star,
+                                  size: 12,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.deepPurple.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${widget.appNotifications.length}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     onTap: () async {
                       final provider = Provider.of<NotificationProvider>(
