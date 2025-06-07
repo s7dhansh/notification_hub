@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_android/billing_client_wrappers.dart';
-import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/subscription_model.dart';
 
@@ -20,7 +18,7 @@ class SubscriptionService {
   static const Set<String> productIds = {monthlySubscriptionId};
 
   List<ProductDetails> _products = [];
-  List<PurchaseDetails> _purchases = [];
+  // List<PurchaseDetails> _purchases = [];
   bool _isAvailable = false;
   bool _purchasePending = false;
 
@@ -52,7 +50,7 @@ class SubscriptionService {
     if (!isAvailable) {
       _isAvailable = isAvailable;
       _products = [];
-      _purchases = [];
+      // _purchases = [];
       _purchasePending = false;
       return;
     }
@@ -68,7 +66,7 @@ class SubscriptionService {
     if (productDetailResponse.error != null) {
       _isAvailable = isAvailable;
       _products = productDetailResponse.productDetails;
-      _purchases = [];
+      // _purchases = [];
       _purchasePending = false;
       return;
     }
@@ -76,7 +74,7 @@ class SubscriptionService {
     if (productDetailResponse.productDetails.isEmpty) {
       _isAvailable = isAvailable;
       _products = productDetailResponse.productDetails;
-      _purchases = [];
+      // _purchases = [];
       _purchasePending = false;
       return;
     }
